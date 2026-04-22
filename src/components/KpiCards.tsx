@@ -1,0 +1,28 @@
+import type { Recap } from '@/types';
+import { fmt, pct } from '@/lib/utils';
+
+interface Props {
+  recap: Recap;
+}
+
+export default function KpiCards({ recap }: Props) {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <Kpi label="Total facturé" value={fmt(recap.totalFact)} color="text-white" delay={0} />
+      <Kpi label="Reçu AMO" value={fmt(recap.totalAMO)} color="text-sky" delay={1} />
+      <Kpi label="Reçu AMC" value={fmt(recap.totalAMC)} color="text-indigo" delay={2} />
+      <Kpi label="Total encaissé" value={fmt(recap.totalRecu)} color="text-emerald" delay={3} />
+      <Kpi label="Reste à percevoir" value={fmt(recap.reste)} color="text-rose" delay={4} />
+      <Kpi label="Taux recouvrement" value={pct(recap.taux)} color="text-amber" delay={5} />
+    </div>
+  );
+}
+
+function Kpi({ label, value, color, delay }: { label: string; value: string; color: string; delay: number }) {
+  return (
+    <div className="bg-raised border border-white/5 rounded-lg p-4 animate-fade-in-up" style={{ animationDelay: `${delay * 60}ms` }}>
+      <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{label}</div>
+      <div className={`text-lg font-bold ${color}`}>{value}</div>
+    </div>
+  );
+}
