@@ -237,15 +237,16 @@ export function rapprochement(
     });
   });
 
-  // Orphelins : paiements sans recette
+  // Paiements d'actes antérieurs : paiements sécu/mutuelle sans recette ce mois-ci
+  // (décalage normal de 7-30 jours entre FSE et règlement)
   secuMap.forEach((hit, fse) => {
     if (recFSEs.has(fse)) return;
     results.push({
       fse, patient: hit.lines[0].patient, patientNorm: hit.lines[0].patientNorm,
       date: hit.lines[0].date, montant: 0, attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
-      recuAMO: hit.total, recuAMC: 0, totalRecu: hit.total, ecart: -hit.total,
-      statut: 'ORPHELIN', matchType: 'orphelin-secu', mutSources: '', isCMU: false,
-      confidence: 100, warnings: ['Paiement Sécu sans recette correspondante'],
+      recuAMO: hit.total, recuAMC: 0, totalRecu: hit.total, ecart: 0,
+      statut: 'ANTÉRIEUR', matchType: 'anterieur-secu', mutSources: '', isCMU: false,
+      confidence: 100, warnings: ['Paiement Sécu d\u2019un acte antérieur (FSE absente du livre de recettes ce mois)'],
     });
   });
   mutMap.forEach((hit, fse) => {
@@ -254,9 +255,9 @@ export function rapprochement(
     results.push({
       fse, patient: hit.lines[0].patient, patientNorm: hit.lines[0].patientNorm,
       date: hit.lines[0].date, montant: 0, attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
-      recuAMO: 0, recuAMC: hit.total, totalRecu: hit.total, ecart: -hit.total,
-      statut: 'ORPHELIN', matchType: 'orphelin-mut', mutSources: [...types].join(', '), isCMU: false,
-      confidence: 100, warnings: ['Paiement Mutuelle sans recette correspondante'],
+      recuAMO: 0, recuAMC: hit.total, totalRecu: hit.total, ecart: 0,
+      statut: 'ANTÉRIEUR', matchType: 'anterieur-mut', mutSources: [...types].join(', '), isCMU: false,
+      confidence: 100, warnings: ['Paiement Mutuelle d\u2019un acte antérieur (FSE absente du livre de recettes ce mois)'],
     });
   });
 
@@ -264,7 +265,8 @@ export function rapprochement(
 }
 
 export function buildRecap(items: ResultItem[]) {
-  const items_mois = items.filter(r => r.statut !== 'ORPHELIN');
+  const items_mois = items.filter(r => r.statut !== 'ANTÉRIEUR' && r.statut !== 'ORPHELIN');
+  const items_ant = items.filter(r => r.statut === 'ANTÉRIEUR');
   const items_orph = items.filter(r => r.statut === 'ORPHELIN');
   const totalFact = items_mois.reduce((s, r) => s + r.montant, 0);
   const totalAMO = items_mois.reduce((s, r) => s + r.recuAMO, 0);
@@ -273,6 +275,9 @@ export function buildRecap(items: ResultItem[]) {
   const reste = items_mois.reduce((s, r) => s + Math.max(r.ecart, 0), 0);
   const taux = totalFact ? (totalRecu / totalFact) * 100 : 0;
 
+  const totalAnterieurAMO = items_ant.reduce((s, r) => s + r.recuAMO, 0);
+  const totalAnterieurAMC = items_ant.reduce((s, r) => s + r.recuAMC, 0);
+
   return {
     totalFact, totalAMO, totalAMC, totalRecu, reste, taux,
     nOK: items_mois.filter(r => r.statut === 'OK').length,
@@ -280,6 +285,9 @@ export function buildRecap(items: ResultItem[]) {
     nImpaye: items_mois.filter(r => r.statut === 'IMPAYÉ').length,
     nVerif: items_mois.filter(r => r.statut === 'À VÉRIFIER').length,
     nOrphelin: items_orph.length,
+    nAnterieur: items_ant.length,
+    totalAnterieurAMO,
+    totalAnterieurAMC,
     total: items.length,
   };
 }

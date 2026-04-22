@@ -48,7 +48,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
   // Filtering
   const filtered = useMemo(() => {
     let list = items;
-    if (filter === 'ALL') list = list.filter(r => r.statut !== 'ORPHELIN');
+    if (filter === 'ALL') list = list.filter(r => r.statut !== 'ORPHELIN' && r.statut !== 'ANTÉRIEUR');
     else list = list.filter(r => r.statut === filter);
     if (search) {
       const q = search.toLowerCase();
@@ -76,12 +76,12 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
   }, [page, totalPages]);
 
   const chips: { key: FilterKey; label: string; cls: string }[] = [
-    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin})`, cls: 'chip-all' },
+    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur})`, cls: 'chip-all' },
     { key: 'OK', label: `✅ OK (${recap.nOK})`, cls: 'chip-ok' },
     { key: 'ÉCART', label: `⚠️ Écarts (${recap.nEcart})`, cls: 'chip-ecart' },
     { key: 'IMPAYÉ', label: `❌ Impayés (${recap.nImpaye})`, cls: 'chip-impaye' },
     { key: 'À VÉRIFIER', label: `🔍 À vérifier (${recap.nVerif})`, cls: 'chip-verif' },
-    { key: 'ORPHELIN', label: `🔍 Orphelins (${recap.nOrphelin})`, cls: 'chip-orphelin' },
+    { key: 'ANTÉRIEUR', label: `📅 Actes antérieurs (${recap.nAnterieur})`, cls: 'chip-anterieur' },
   ];
 
   return (
@@ -183,8 +183,9 @@ function StatusBadge({ statut, validated }: { statut: string; validated?: boolea
     'IMPAYÉ': 'bg-rose/15 text-rose border-rose/30',
     'À VÉRIFIER': 'bg-sky/15 text-sky border-sky/30',
     'ORPHELIN': 'bg-indigo/15 text-indigo border-indigo/30',
+    'ANTÉRIEUR': 'bg-violet-500/15 text-violet-400 border-violet-500/30',
   }[statut] || 'bg-white/5 text-slate-400';
-  const icon = { 'OK': '✅', 'ÉCART': '⚠️', 'IMPAYÉ': '❌', 'À VÉRIFIER': '🔍', 'ORPHELIN': '🔍' }[statut] || '';
+  const icon = { 'OK': '✅', 'ÉCART': '⚠️', 'IMPAYÉ': '❌', 'À VÉRIFIER': '🔍', 'ORPHELIN': '🔍', 'ANTÉRIEUR': '📅' }[statut] || '';
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>
       {icon} {statut}

@@ -1,6 +1,6 @@
 // Types centraux PEC Antilles
 
-export type Statut = 'OK' | 'ÉCART' | 'IMPAYÉ' | 'À VÉRIFIER' | 'ORPHELIN';
+export type Statut = 'OK' | 'ÉCART' | 'IMPAYÉ' | 'À VÉRIFIER' | 'ORPHELIN' | 'ANTÉRIEUR';
 
 export interface RecetteRow {
   fse: string;
@@ -74,6 +74,9 @@ export interface Recap {
   nImpaye: number;
   nVerif: number;
   nOrphelin: number;
+  nAnterieur: number;
+  totalAnterieurAMO: number;
+  totalAnterieurAMC: number;
   total: number;
 }
 

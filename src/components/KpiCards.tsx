@@ -6,14 +6,25 @@ interface Props {
 }
 
 export default function KpiCards({ recap }: Props) {
+  const totalAnterieur = recap.totalAnterieurAMO + recap.totalAnterieurAMC;
   return (
-    <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-      <Kpi label="Total facturé" value={fmt(recap.totalFact)} color="text-white" delay={0} />
-      <Kpi label="Reçu AMO" value={fmt(recap.totalAMO)} color="text-sky" delay={1} />
-      <Kpi label="Reçu AMC" value={fmt(recap.totalAMC)} color="text-indigo" delay={2} />
-      <Kpi label="Total encaissé" value={fmt(recap.totalRecu)} color="text-emerald" delay={3} />
-      <Kpi label="Reste à percevoir" value={fmt(recap.reste)} color="text-rose" delay={4} />
-      <Kpi label="Taux recouvrement" value={pct(recap.taux)} color="text-amber" delay={5} />
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <Kpi label="Total facturé" value={fmt(recap.totalFact)} color="text-white" delay={0} />
+        <Kpi label="Reçu AMO" value={fmt(recap.totalAMO)} color="text-sky" delay={1} />
+        <Kpi label="Reçu AMC" value={fmt(recap.totalAMC)} color="text-indigo" delay={2} />
+        <Kpi label="Total encaissé" value={fmt(recap.totalRecu)} color="text-emerald" delay={3} />
+        <Kpi label="Reste à percevoir" value={fmt(recap.reste)} color="text-rose" delay={4} />
+        <Kpi label="Taux recouvrement" value={pct(recap.taux)} color="text-amber" delay={5} />
+      </div>
+      {recap.nAnterieur > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Kpi label="Paiements actes antérieurs" value={`${recap.nAnterieur} lignes`} color="text-violet-400" delay={6} />
+          <Kpi label="Antérieur AMO" value={fmt(recap.totalAnterieurAMO)} color="text-violet-400" delay={7} />
+          <Kpi label="Antérieur AMC" value={fmt(recap.totalAnterieurAMC)} color="text-violet-400" delay={8} />
+          <Kpi label="Total antérieur encaissé" value={fmt(totalAnterieur)} color="text-violet-400" delay={9} />
+        </div>
+      )}
     </div>
   );
 }
