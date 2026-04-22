@@ -4,6 +4,22 @@ import { findCol } from './utils';
 const AI_KEY_STORAGE = 'pec_anthropic_key_v1';
 export const AI_MODEL = 'claude-haiku-4-5';
 const AI_API_URL = 'https://api.anthropic.com/v1/messages';
+const MAX_RETRIES = 3;
+
+// Retry with exponential backoff for rate limits
+async function fetchWithRetry(url: string, init: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+  for (let i = 0; i <= retries; i++) {
+    const resp = await fetch(url, init);
+    if (resp.status === 429 && i < retries) {
+      const retryAfter = resp.headers.get('retry-after');
+      const waitMs = retryAfter ? parseInt(retryAfter) * 1000 : Math.min(1000 * Math.pow(2, i), 30000);
+      await new Promise(r => setTimeout(r, waitMs));
+      continue;
+    }
+    return resp;
+  }
+  throw new Error('Rate limit exceeded after retries');
+}
 
 export const getApiKey = (): string => localStorage.getItem(AI_KEY_STORAGE) || '';
 export const setApiKey = (k: string): void => {
@@ -164,7 +180,7 @@ CHAMPS CIBLES À IDENTIFIER :
 ${fieldsList}`;
 
   try {
-    const resp = await fetch(AI_API_URL, {
+    const resp = await fetchWithRetry(AI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -322,7 +338,7 @@ JSON strict UNIQUEMENT :
 ${lines.join('\n')}`;
 
   const t0 = Date.now();
-  const resp = await fetch(AI_API_URL, {
+  const resp = await fetchWithRetry(AI_API_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
