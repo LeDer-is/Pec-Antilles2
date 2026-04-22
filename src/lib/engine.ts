@@ -6,24 +6,33 @@ export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
   const h = Object.keys(data[0]);
   const cFSE = findCol(h, ['FSE', /N.*FSE/]);
   const cPatient = findCol(h, ['PATIENT']);
-  const cDate = findCol(h, ['DATE FSE', 'DATE']);
-  const cMontant = findCol(h, ['MONTANT FACTURE']);
+  const cNom = findCol(h, [/^NOM$/]);
+  const cPrenom = findCol(h, ['PRENOM', 'PRÉNOM']);
+  const cDate = findCol(h, ['DATE FSE', 'DATE ENCAISSEMENT', 'DATE']);
+  const cMontant = findCol(h, ['MONTANT FACTURE', 'MONTANT']);
   const cAMO = findCol(h, ['AMO ORTHALIS', 'MONTANT AMO ORTH']);
   const cAMC = findCol(h, ['AMC ORTHALIS', 'MONTANT AMC ORTH']);
   const cReste = findCol(h, ['RESTE A CHARGE', 'RESTE CHARGE']);
   const cPaye = findCol(h, ['MONTANT PAYE']);
   const cRestePayer = findCol(h, ['RESTE A PAYER']);
-  const cOrgAMO = h.find(x => normName(x) === 'AMO') || findCol(h, [/^AMO$/]);
-  const cOrgAMC = h.find(x => normName(x) === 'AMC') || findCol(h, [/^AMC$/]);
+  const cOrgAMO = h.find(x => normName(x) === 'AMO') || findCol(h, [/^AMO$/, 'CAISSE']);
+  const cOrgAMC = h.find(x => normName(x) === 'AMC') || findCol(h, [/^AMC$/, 'MUTUELLE']);
   const cTypeLot = findCol(h, ['TYPE LOT']);
+  const cMode = findCol(h, ['MODE DE PAIEMENT', 'MODE PAIEMENT', 'MODE']);
 
   return data.map(r => {
     const fse = toStr(getVal(r, cFSE));
     if (!fse) return null;
+    let patient = toStr(getVal(r, cPatient));
+    if (!patient && cNom) {
+      const nom = toStr(getVal(r, cNom));
+      const prenom = cPrenom ? toStr(getVal(r, cPrenom)) : '';
+      patient = prenom ? `${nom} ${prenom}` : nom;
+    }
+    const mode = toStr(getVal(r, cMode)).toUpperCase();
+    const mutuelle = toStr(getVal(r, cOrgAMC ?? null));
     return {
-      fse,
-      patient: toStr(getVal(r, cPatient)),
-      patientNorm: normName(toStr(getVal(r, cPatient))),
+      fse, patient, patientNorm: normName(patient),
       date: toStr(getVal(r, cDate)),
       montant: toNum(getVal(r, cMontant)),
       attenduAMO: toNum(getVal(r, cAMO)),
@@ -32,9 +41,10 @@ export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
       paye: toNum(getVal(r, cPaye)),
       restePayer: toNum(getVal(r, cRestePayer)),
       orgAMO: toStr(getVal(r, cOrgAMO ?? null)),
-      orgAMC: toStr(getVal(r, cOrgAMC ?? null)),
+      orgAMC: mutuelle,
       typeLot: toStr(getVal(r, cTypeLot)),
-      isCMU: toStr(getVal(r, cOrgAMC ?? null)).toUpperCase().includes('CMU'),
+      isCMU: mutuelle.toUpperCase().includes('CMU'),
+      mode,
     };
   }).filter((r): r is RecetteRow => r !== null);
 }
@@ -44,8 +54,8 @@ export function parseSecu(data: Record<string, unknown>[]): SecuRow[] {
   const h = Object.keys(data[0]);
   const cFSE = findCol(h, ['FSE', /N.*FSE/]);
   const cPatient = findCol(h, ['PATIENT']);
-  const cAMO = findCol(h, ['MONTANT AMO', 'AMO']);
-  const cDate = findCol(h, ['DATE']);
+  const cAMO = findCol(h, ['MONTANT AMO', 'AMO', 'MONTANT']);
+  const cDate = findCol(h, ['DATE PAIEMENT', 'DATE']);
 
   return data.map(r => {
     const fse = toStr(getVal(r, cFSE));
@@ -101,77 +111,129 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
       if (prenom) patient = patient + ' ' + prenom;
     }
     return {
-      fse,
-      type,
-      patient,
-      patientNorm: normName(patient),
+      fse, type, patient, patientNorm: normName(patient),
       montantAMC: toNum(getVal(r, cMontant)),
       date: toStr(getVal(r, 'DATE') || getVal(r, cMontant ? 'DATE PAIEMENT' : '')),
     };
   }).filter((r): r is MutuelleRow => r !== null);
 }
 
-function aggregateByFSE<T extends { fse: string }>(
+// ─── Agrégation par FSE + sous-groupes par patient ───
+
+type FsePatientGroup<T> = {
+  total: number;
+  lines: T[];
+  patients: Map<string, { total: number; lines: T[] }>;
+};
+
+function aggregateByFSEAndPatient<T extends { fse: string; patientNorm: string }>(
   rows: T[],
   valueKey: keyof T
-): Map<string, { total: number; lines: T[] }> {
-  const map = new Map<string, { total: number; lines: T[] }>();
+): Map<string, FsePatientGroup<T>> {
+  const map = new Map<string, FsePatientGroup<T>>();
   rows.forEach(r => {
-    const existing = map.get(r.fse) || { total: 0, lines: [] };
-    existing.total += Number(r[valueKey]) || 0;
+    const existing = map.get(r.fse) || { total: 0, lines: [], patients: new Map() };
+    const val = Number(r[valueKey]) || 0;
+    existing.total += val;
     existing.lines.push(r);
+    const pKey = r.patientNorm || 'INCONNU';
+    const pExisting = existing.patients.get(pKey) || { total: 0, lines: [] };
+    pExisting.total += val;
+    pExisting.lines.push(r);
+    existing.patients.set(pKey, pExisting);
     map.set(r.fse, existing);
   });
   return map;
 }
+
+function findBestPatientMatch<T extends { patientNorm: string }>(
+  patientNorm: string,
+  patients: Map<string, { total: number; lines: T[] }>
+): { key: string; score: number; total: number; lines: T[] } | null {
+  let best: { key: string; score: number; total: number; lines: T[] } | null = null;
+  patients.forEach((data, pKey) => {
+    const s = nameScore(patientNorm, pKey);
+    if (!best || s > best.score) {
+      best = { key: pKey, score: s, total: data.total, lines: data.lines };
+    }
+  });
+  return best;
+}
+
+// ─── Rapprochement principal ───
 
 export function rapprochement(
   recettes: RecetteRow[],
   secuRows: SecuRow[],
   mutRows: MutuelleRow[]
 ): AnalysisResults {
-  const secuMap = aggregateByFSE(secuRows, 'montantAMO');
-  const mutMap = aggregateByFSE(mutRows, 'montantAMC');
+  const secuMap = aggregateByFSEAndPatient(secuRows, 'montantAMO');
+  const mutMap = aggregateByFSEAndPatient(mutRows, 'montantAMC');
 
   const results: ResultItem[] = [];
-  const recFSEs = new Set(recettes.map(r => r.fse));
+  const usedSecuKeys = new Set<string>();
+  const usedMutKeys = new Set<string>();
 
   recettes.forEach(rec => {
     let recuAMO = 0, recuAMC = 0;
     let mutSources = '';
     const warnings: string[] = [];
-    let confidence = 100;
-    let matchType = 'fse';
+    let matchType = 'fse+nom';
     let secuDetail: { patient: string; montantAMO: number } | undefined;
     let mutDetail: { lines: { patient: string; montantAMC: number; type: string }[] } | undefined;
 
-    // SECU match par FSE
+    // ── SECU : match par FSE + meilleur nom ──
     let secuNameScore = 100;
-    const secuHit = secuMap.get(rec.fse);
-    if (secuHit) {
-      recuAMO = secuHit.total;
-      secuDetail = { patient: secuHit.lines[0].patient, montantAMO: secuHit.total };
-      if (rec.patientNorm && secuHit.lines[0].patientNorm) {
-        secuNameScore = nameScore(rec.patientNorm, secuHit.lines[0].patientNorm);
-        if (secuNameScore < 70) {
-          warnings.push(`⚠️ FSE matche mais noms différents (${secuNameScore}%): Sécu="${secuHit.lines[0].patient}"`);
+    const secuFSEHit = secuMap.get(rec.fse);
+    if (secuFSEHit && rec.patientNorm) {
+      const best = findBestPatientMatch(rec.patientNorm, secuFSEHit.patients);
+      if (best && best.score >= 50) {
+        recuAMO = best.total;
+        secuNameScore = best.score;
+        secuDetail = { patient: best.lines[0].patient, montantAMO: best.total };
+        usedSecuKeys.add(`${rec.fse}::${best.key}`);
+        if (best.score < 70) {
+          warnings.push(`⚠️ Nom approx. (${best.score}%): Sécu="${best.lines[0].patient}"`);
         }
+      } else if (secuFSEHit.patients.size === 1 && !rec.patientNorm) {
+        // Pas de nom côté recettes → on prend le seul patient dispo
+        const only = [...secuFSEHit.patients.values()][0];
+        recuAMO = only.total;
+        secuDetail = { patient: only.lines[0].patient, montantAMO: only.total };
+        usedSecuKeys.add(`${rec.fse}::${[...secuFSEHit.patients.keys()][0]}`);
+        warnings.push('⚠️ Pas de nom patient côté recettes, match FSE seul');
+      } else {
+        warnings.push(`⚠️ FSE ${rec.fse} en Sécu mais patient différent (collision FSE recyclée)`);
+        secuNameScore = 0;
+      }
+    } else if (secuFSEHit && !rec.patientNorm) {
+      // Pas de nom → match FSE seul si un seul patient
+      if (secuFSEHit.patients.size === 1) {
+        const only = [...secuFSEHit.patients.values()][0];
+        recuAMO = only.total;
+        secuDetail = { patient: only.lines[0].patient, montantAMO: only.total };
+        usedSecuKeys.add(`${rec.fse}::${[...secuFSEHit.patients.keys()][0]}`);
       }
     }
 
-    // MUTUELLE match par FSE
+    // ── MUTUELLE : match par FSE + meilleur nom ──
     let mutNameScore = 100;
-    const mutHit = mutMap.get(rec.fse);
-    if (mutHit) {
-      recuAMC = mutHit.total;
-      const types = new Set(mutHit.lines.map(l => l.type));
-      mutSources = [...types].join(', ');
-      mutDetail = { lines: mutHit.lines.map(l => ({ patient: l.patient, montantAMC: l.montantAMC, type: l.type })) };
-      if (rec.patientNorm && mutHit.lines[0].patientNorm) {
-        mutNameScore = nameScore(rec.patientNorm, mutHit.lines[0].patientNorm);
-        if (mutNameScore < 70 && mutHit.lines[0].patientNorm) {
-          warnings.push(`⚠️ FSE matche mais noms différents (${mutNameScore}%): Mut="${mutHit.lines[0].patient}"`);
+    const mutFSEHit = mutMap.get(rec.fse);
+    if (mutFSEHit && rec.patientNorm) {
+      const best = findBestPatientMatch(rec.patientNorm, mutFSEHit.patients);
+      if (best && best.score >= 50) {
+        recuAMC = best.total;
+        mutNameScore = best.score;
+        const types = new Set(best.lines.map((l: MutuelleRow) => l.type));
+        mutSources = [...types].join(', ');
+        mutDetail = { lines: best.lines.map((l: MutuelleRow) => ({ patient: l.patient, montantAMC: l.montantAMC, type: l.type })) };
+        usedMutKeys.add(`${rec.fse}::${best.key}`);
+        if (best.score < 70) {
+          warnings.push(`⚠️ Nom approx. (${best.score}%): Mut="${best.lines[0].patient}"`);
         }
+      } else {
+        warnings.push(`⚠️ FSE ${rec.fse} en Mutuelle mais patient différent (collision FSE recyclée)`);
+        mutNameScore = 0;
       }
     }
 
@@ -179,26 +241,22 @@ export function rapprochement(
     const ecart = rec.montant - rec.resteCharge - totalRecu;
     const ecartAbs = Math.abs(ecart);
 
-    // ─── Score de confiance pondéré ───
-    // 4 facteurs : FSE match (30pts), nom (30pts), montant cohérence (25pts), couverture (15pts)
+    // ── Score de confiance ──
     let score = 0;
-    // FSE match : 30pts si trouvé dans sécu ou mutuelle
-    if (secuHit || mutHit) score += 30;
-    // Nom : 30pts pondéré par le meilleur score nom
-    const bestName = Math.min(secuHit ? secuNameScore : 100, mutHit ? mutNameScore : 100);
+    if (recuAMO > 0 || recuAMC > 0) score += 30;
+    const bestName = Math.min(
+      recuAMO > 0 ? secuNameScore : 100,
+      recuAMC > 0 ? mutNameScore : 100
+    );
     score += Math.round((bestName / 100) * 30);
-    // Montant cohérence : 25pts si écart < 5%, 15pts si < 20%, 5pts sinon
     const expectedTotal = rec.montant - rec.resteCharge;
     if (expectedTotal > 0 && totalRecu > 0) {
       const ecartPct = Math.abs(ecart) / expectedTotal;
       score += ecartPct <= 0.05 ? 25 : ecartPct <= 0.20 ? 15 : 5;
-    } else if (totalRecu === 0) {
-      score += 0;
     }
-    // Couverture : 15pts si AMO+AMC, 10pts si un seul, 0 sinon
     if (recuAMO > 0 && recuAMC > 0) score += 15;
     else if (recuAMO > 0 || recuAMC > 0) score += 10;
-    confidence = Math.min(score, 100);
+    const confidence = Math.min(score, 100);
 
     let statut: Statut;
     if (recuAMO === 0 && recuAMC === 0) {
@@ -214,50 +272,43 @@ export function rapprochement(
     }
 
     results.push({
-      fse: rec.fse,
-      patient: rec.patient,
-      patientNorm: rec.patientNorm,
-      date: rec.date,
-      montant: rec.montant,
-      attenduAMO: rec.attenduAMO,
-      attenduAMC: rec.attenduAMC,
-      resteCharge: rec.resteCharge,
-      recuAMO,
-      recuAMC,
-      totalRecu,
-      ecart,
-      statut,
-      matchType,
-      mutSources,
-      isCMU: rec.isCMU,
-      confidence,
-      warnings,
-      secuDetail,
-      mutDetail,
+      fse: rec.fse, patient: rec.patient, patientNorm: rec.patientNorm,
+      date: rec.date, montant: rec.montant,
+      attenduAMO: rec.attenduAMO, attenduAMC: rec.attenduAMC, resteCharge: rec.resteCharge,
+      recuAMO, recuAMC, totalRecu, ecart, statut, matchType, mutSources,
+      isCMU: rec.isCMU, confidence, warnings, secuDetail, mutDetail,
     });
   });
 
-  // Paiements d'actes antérieurs : paiements sécu/mutuelle sans recette ce mois-ci
-  // (décalage normal de 7-30 jours entre FSE et règlement)
-  secuMap.forEach((hit, fse) => {
-    if (recFSEs.has(fse)) return;
-    results.push({
-      fse, patient: hit.lines[0].patient, patientNorm: hit.lines[0].patientNorm,
-      date: hit.lines[0].date, montant: 0, attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
-      recuAMO: hit.total, recuAMC: 0, totalRecu: hit.total, ecart: 0,
-      statut: 'ANTÉRIEUR', matchType: 'anterieur-secu', mutSources: '', isCMU: false,
-      confidence: 100, warnings: ['Paiement Sécu d\u2019un acte antérieur (FSE absente du livre de recettes ce mois)'],
+  // ── Paiements d'actes antérieurs : (FSE, patient) non matchés ──
+  secuMap.forEach((fseGroup, fse) => {
+    fseGroup.patients.forEach((pData, pKey) => {
+      if (usedSecuKeys.has(`${fse}::${pKey}`)) return;
+      results.push({
+        fse, patient: pData.lines[0].patient, patientNorm: pKey,
+        date: pData.lines[0].date, montant: 0,
+        attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
+        recuAMO: pData.total, recuAMC: 0, totalRecu: pData.total, ecart: 0,
+        statut: 'ANTÉRIEUR', matchType: 'anterieur-secu', mutSources: '', isCMU: false,
+        confidence: 100,
+        warnings: ['Paiement Sécu d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
+      });
     });
   });
-  mutMap.forEach((hit, fse) => {
-    if (recFSEs.has(fse)) return;
-    const types = new Set(hit.lines.map(l => l.type));
-    results.push({
-      fse, patient: hit.lines[0].patient, patientNorm: hit.lines[0].patientNorm,
-      date: hit.lines[0].date, montant: 0, attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
-      recuAMO: 0, recuAMC: hit.total, totalRecu: hit.total, ecart: 0,
-      statut: 'ANTÉRIEUR', matchType: 'anterieur-mut', mutSources: [...types].join(', '), isCMU: false,
-      confidence: 100, warnings: ['Paiement Mutuelle d\u2019un acte antérieur (FSE absente du livre de recettes ce mois)'],
+  mutMap.forEach((fseGroup, fse) => {
+    fseGroup.patients.forEach((pData, pKey) => {
+      if (usedMutKeys.has(`${fse}::${pKey}`)) return;
+      const matchedLines = pData.lines;
+      const types = new Set(matchedLines.map(l => l.type));
+      results.push({
+        fse, patient: matchedLines[0].patient, patientNorm: pKey,
+        date: matchedLines[0].date, montant: 0,
+        attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
+        recuAMO: 0, recuAMC: pData.total, totalRecu: pData.total, ecart: 0,
+        statut: 'ANTÉRIEUR', matchType: 'anterieur-mut', mutSources: [...types].join(', '), isCMU: false,
+        confidence: 100,
+        warnings: ['Paiement Mutuelle d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
+      });
     });
   });
 

@@ -16,6 +16,7 @@ export interface RecetteRow {
   orgAMO: string;
   orgAMC: string;
   typeLot: string;
+  mode: string;
   isCMU: boolean;
 }
 
