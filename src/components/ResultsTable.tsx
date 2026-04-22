@@ -48,7 +48,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
   // Filtering
   const filtered = useMemo(() => {
     let list = items;
-    if (filter === 'ALL') list = list.filter(r => r.statut !== 'ORPHELIN' && r.statut !== 'ANTÉRIEUR');
+    if (filter === 'ALL') list = list.filter(r => r.statut !== 'ORPHELIN' && r.statut !== 'ANTÉRIEUR' && r.statut !== 'ANTÉRIEUR INCONNU' && r.statut !== 'RÉGLÉ M-1' && r.statut !== 'IMPAYÉ PERSISTANT');
     else list = list.filter(r => r.statut === filter);
     if (search) {
       const q = search.toLowerCase();
@@ -76,12 +76,15 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
   }, [page, totalPages]);
 
   const chips: { key: FilterKey; label: string; cls: string }[] = [
-    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur})`, cls: 'chip-all' },
+    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur - recap.nRegleM1 - recap.nImpayePersistant})`, cls: 'chip-all' },
     { key: 'OK', label: `✅ OK (${recap.nOK})`, cls: 'chip-ok' },
     { key: 'ÉCART', label: `⚠️ Écarts (${recap.nEcart})`, cls: 'chip-ecart' },
     { key: 'IMPAYÉ', label: `❌ Impayés (${recap.nImpaye})`, cls: 'chip-impaye' },
     { key: 'À VÉRIFIER', label: `🔍 À vérifier (${recap.nVerif})`, cls: 'chip-verif' },
-    { key: 'ANTÉRIEUR', label: `📅 Actes antérieurs (${recap.nAnterieur})`, cls: 'chip-anterieur' },
+    ...(recap.nRegleM1 > 0 ? [{ key: 'RÉGLÉ M-1' as FilterKey, label: `✅ Réglés M-1 (${recap.nRegleM1})`, cls: 'chip-ok' }] : []),
+    ...(recap.nImpayePersistant > 0 ? [{ key: 'IMPAYÉ PERSISTANT' as FilterKey, label: `⏳ Persistants (${recap.nImpayePersistant})`, cls: 'chip-impaye' }] : []),
+    ...(recap.nAnterieurInconnu > 0 ? [{ key: 'ANTÉRIEUR INCONNU' as FilterKey, label: `⚠️ Ant. inconnu (${recap.nAnterieurInconnu})`, cls: 'chip-anterieur' }] : []),
+    { key: 'ANTÉRIEUR', label: `📅 Actes antérieurs (${recap.nAnterieur - recap.nAnterieurInconnu})`, cls: 'chip-anterieur' },
   ];
 
   return (
@@ -184,8 +187,11 @@ function StatusBadge({ statut, validated }: { statut: string; validated?: boolea
     'À VÉRIFIER': 'bg-sky/15 text-sky border-sky/30',
     'ORPHELIN': 'bg-indigo/15 text-indigo border-indigo/30',
     'ANTÉRIEUR': 'bg-violet-500/15 text-violet-400 border-violet-500/30',
+    'ANTÉRIEUR INCONNU': 'bg-amber/15 text-amber border-amber/30',
+    'RÉGLÉ M-1': 'bg-emerald/15 text-emerald border-emerald/30',
+    'IMPAYÉ PERSISTANT': 'bg-rose/20 text-rose border-rose/40',
   }[statut] || 'bg-white/5 text-slate-400';
-  const icon = { 'OK': '✅', 'ÉCART': '⚠️', 'IMPAYÉ': '❌', 'À VÉRIFIER': '🔍', 'ORPHELIN': '🔍', 'ANTÉRIEUR': '📅' }[statut] || '';
+  const icon = { 'OK': '✅', 'ÉCART': '⚠️', 'IMPAYÉ': '❌', 'À VÉRIFIER': '🔍', 'ORPHELIN': '🔍', 'ANTÉRIEUR': '📅', 'ANTÉRIEUR INCONNU': '⚠️', 'RÉGLÉ M-1': '✅', 'IMPAYÉ PERSISTANT': '⏳' }[statut] || '';
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>
       {icon} {statut}

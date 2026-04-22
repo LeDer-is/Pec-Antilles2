@@ -1,4 +1,4 @@
-import type { RecetteRow, SecuRow, MutuelleRow, ResultItem, AnalysisResults, Statut } from '@/types';
+import type { RecetteRow, SecuRow, MutuelleRow, ImpayeRow, ResultItem, AnalysisResults, Statut } from '@/types';
 import { toNum, toStr, normName, findCol, getVal, nameScore } from './utils';
 
 export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
@@ -118,6 +118,50 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
   }).filter((r): r is MutuelleRow => r !== null);
 }
 
+// ─── Parser CSV d'impayés reportés ───
+export function parseImpayesCSV(csvText: string): ImpayeRow[] {
+  const lines = csvText.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headerLine = lines[0];
+  const sep = headerLine.includes(';') ? ';' : ',';
+  const headers = headerLine.split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+  const idx = (name: string) => {
+    const n = normName(name);
+    return headers.findIndex(h => normName(h) === n || normName(h).includes(n));
+  };
+  const iFse = idx('FSE');
+  const iPatient = idx('PATIENT');
+  const iDate = idx('DATE');
+  const iMontant = idx('MONTANT');
+  const iReste = idx('RESTE CHARGE');
+  const iAMO = idx('ATTENDU AMO');
+  const iAMC = idx('ATTENDU AMC');
+  const iMois = idx('MOIS ORIGINE');
+
+  const now = new Date();
+  return lines.slice(1).map(line => {
+    const cells = line.split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+    const fse = cells[iFse] || '';
+    if (!fse) return null;
+    const patient = cells[iPatient] || '';
+    const moisOrigine = cells[iMois] || '';
+    let ageMois = 1;
+    if (moisOrigine && /^\d{4}-\d{2}$/.test(moisOrigine)) {
+      const [y, m] = moisOrigine.split('-').map(Number);
+      ageMois = (now.getFullYear() - y) * 12 + (now.getMonth() + 1 - m);
+    }
+    return {
+      fse, patient, patientNorm: normName(patient),
+      date: cells[iDate] || '',
+      montant: toNum(cells[iMontant]),
+      resteCharge: toNum(cells[iReste]),
+      attenduAMO: toNum(cells[iAMO]),
+      attenduAMC: toNum(cells[iAMC]),
+      moisOrigine, ageMois: Math.max(1, ageMois),
+    } as ImpayeRow;
+  }).filter((r): r is ImpayeRow => r !== null);
+}
+
 // ─── Agrégation par FSE + sous-groupes par patient ───
 
 type FsePatientGroup<T> = {
@@ -132,16 +176,22 @@ function aggregateByFSEAndPatient<T extends { fse: string; patientNorm: string }
 ): Map<string, FsePatientGroup<T>> {
   const map = new Map<string, FsePatientGroup<T>>();
   rows.forEach(r => {
-    const existing = map.get(r.fse) || { total: 0, lines: [], patients: new Map() };
+    let existing = map.get(r.fse);
+    if (!existing) {
+      existing = { total: 0, lines: [] as T[], patients: new Map() };
+      map.set(r.fse, existing);
+    }
     const val = Number(r[valueKey]) || 0;
     existing.total += val;
     existing.lines.push(r);
     const pKey = r.patientNorm || 'INCONNU';
-    const pExisting = existing.patients.get(pKey) || { total: 0, lines: [] };
+    let pExisting = existing.patients.get(pKey);
+    if (!pExisting) {
+      pExisting = { total: 0, lines: [] as T[] };
+      existing.patients.set(pKey, pExisting);
+    }
     pExisting.total += val;
     pExisting.lines.push(r);
-    existing.patients.set(pKey, pExisting);
-    map.set(r.fse, existing);
   });
   return map;
 }
@@ -165,7 +215,9 @@ function findBestPatientMatch<T extends { patientNorm: string }>(
 export function rapprochement(
   recettes: RecetteRow[],
   secuRows: SecuRow[],
-  mutRows: MutuelleRow[]
+  mutRows: MutuelleRow[],
+  impayesReportes: ImpayeRow[] = [],
+  moisCourant: string = ''
 ): AnalysisResults {
   const secuMap = aggregateByFSEAndPatient(secuRows, 'montantAMO');
   const mutMap = aggregateByFSEAndPatient(mutRows, 'montantAMC');
@@ -280,6 +332,57 @@ export function rapprochement(
     });
   });
 
+  // ── 2ème passe : réconciliation avec impayés du mois précédent ──
+  impayesReportes.forEach(imp => {
+    let recuAMO = 0, recuAMC = 0;
+    let secuDetail: { patient: string; montantAMO: number } | undefined;
+    let mutDetail: { lines: { patient: string; montantAMC: number; type: string }[] } | undefined;
+    let mutSources = '';
+    let resolvedBy: ResultItem['resolvedBy'];
+
+    const secuFSE = secuMap.get(imp.fse);
+    if (secuFSE) {
+      const best = findBestPatientMatch(imp.patientNorm, secuFSE.patients);
+      if (best && best.score >= 50 && !usedSecuKeys.has(`${imp.fse}::${best.key}`)) {
+        recuAMO = best.total;
+        secuDetail = { patient: best.lines[0].patient, montantAMO: best.total };
+        usedSecuKeys.add(`${imp.fse}::${best.key}`);
+        resolvedBy = { type: 'secu', montant: best.total, patient: best.lines[0].patient, date: best.lines[0].date };
+      }
+    }
+    const mutFSE = mutMap.get(imp.fse);
+    if (mutFSE) {
+      const best = findBestPatientMatch(imp.patientNorm, mutFSE.patients);
+      if (best && best.score >= 50 && !usedMutKeys.has(`${imp.fse}::${best.key}`)) {
+        recuAMC = best.total;
+        const types = new Set(best.lines.map((l: MutuelleRow) => l.type));
+        mutSources = [...types].join(', ');
+        mutDetail = { lines: best.lines.map((l: MutuelleRow) => ({ patient: l.patient, montantAMC: l.montantAMC, type: l.type })) };
+        usedMutKeys.add(`${imp.fse}::${best.key}`);
+        if (!resolvedBy) resolvedBy = { type: 'mutuelle', montant: best.total, patient: best.lines[0].patient, date: best.lines[0].date };
+      }
+    }
+
+    const totalRecu = recuAMO + recuAMC;
+    const ecart = imp.montant - imp.resteCharge - totalRecu;
+    const isResolved = totalRecu > 0;
+    const statut: Statut = isResolved ? 'RÉGLÉ M-1' : (imp.ageMois >= 2 ? 'IMPAYÉ PERSISTANT' : 'IMPAYÉ');
+
+    results.push({
+      fse: imp.fse, patient: imp.patient, patientNorm: imp.patientNorm,
+      date: imp.date, montant: imp.montant,
+      attenduAMO: imp.attenduAMO, attenduAMC: imp.attenduAMC, resteCharge: imp.resteCharge,
+      recuAMO, recuAMC, totalRecu, ecart,
+      statut, matchType: isResolved ? 'resolu-m1' : 'impaye-reporte',
+      mutSources, isCMU: false,
+      confidence: isResolved ? 95 : 80,
+      warnings: isResolved
+        ? [`✅ Impayé de ${imp.moisOrigine} réglé ce mois (${imp.ageMois} mois d'écart)`]
+        : [`⏳ Impayé de ${imp.moisOrigine} toujours non réglé (${imp.ageMois} mois)`],
+      secuDetail, mutDetail, moisOrigine: imp.moisOrigine, ageMois: imp.ageMois, resolvedBy,
+    });
+  });
+
   // ── Paiements d'actes antérieurs : (FSE, patient) non matchés ──
   secuMap.forEach((fseGroup, fse) => {
     fseGroup.patients.forEach((pData, pKey) => {
@@ -289,9 +392,11 @@ export function rapprochement(
         date: pData.lines[0].date, montant: 0,
         attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
         recuAMO: pData.total, recuAMC: 0, totalRecu: pData.total, ecart: 0,
-        statut: 'ANTÉRIEUR', matchType: 'anterieur-secu', mutSources: '', isCMU: false,
-        confidence: 100,
-        warnings: ['Paiement Sécu d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
+        statut: impayesReportes.length > 0 ? 'ANTÉRIEUR INCONNU' : 'ANTÉRIEUR', matchType: 'anterieur-secu', mutSources: '', isCMU: false,
+        confidence: impayesReportes.length > 0 ? 70 : 100,
+        warnings: [impayesReportes.length > 0
+          ? '⚠️ Paiement Sécu non rattaché (ni FSE du mois, ni impayé reporté — vérifier origine)'
+          : 'Paiement Sécu d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
       });
     });
   });
@@ -305,9 +410,11 @@ export function rapprochement(
         date: matchedLines[0].date, montant: 0,
         attenduAMO: 0, attenduAMC: 0, resteCharge: 0,
         recuAMO: 0, recuAMC: pData.total, totalRecu: pData.total, ecart: 0,
-        statut: 'ANTÉRIEUR', matchType: 'anterieur-mut', mutSources: [...types].join(', '), isCMU: false,
-        confidence: 100,
-        warnings: ['Paiement Mutuelle d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
+        statut: impayesReportes.length > 0 ? 'ANTÉRIEUR INCONNU' : 'ANTÉRIEUR', matchType: 'anterieur-mut', mutSources: [...types].join(', '), isCMU: false,
+        confidence: impayesReportes.length > 0 ? 70 : 100,
+        warnings: [impayesReportes.length > 0
+          ? '⚠️ Paiement Mutuelle non rattaché (ni FSE du mois, ni impayé reporté — vérifier origine)'
+          : 'Paiement Mutuelle d\u2019un acte antérieur (pas de FSE+patient correspondant dans les recettes)'],
       });
     });
   });
@@ -316,9 +423,12 @@ export function rapprochement(
 }
 
 export function buildRecap(items: ResultItem[]) {
-  const items_mois = items.filter(r => r.statut !== 'ANTÉRIEUR' && r.statut !== 'ORPHELIN');
-  const items_ant = items.filter(r => r.statut === 'ANTÉRIEUR');
+  const ANT_STATUTS: Statut[] = ['ANTÉRIEUR', 'ANTÉRIEUR INCONNU', 'RÉGLÉ M-1', 'IMPAYÉ PERSISTANT'];
+  const items_mois = items.filter(r => !ANT_STATUTS.includes(r.statut) && r.statut !== 'ORPHELIN');
+  const items_ant = items.filter(r => r.statut === 'ANTÉRIEUR' || r.statut === 'ANTÉRIEUR INCONNU');
   const items_orph = items.filter(r => r.statut === 'ORPHELIN');
+  const items_regleM1 = items.filter(r => r.statut === 'RÉGLÉ M-1');
+  const items_persist = items.filter(r => r.statut === 'IMPAYÉ PERSISTANT');
   const totalFact = items_mois.reduce((s, r) => s + r.montant, 0);
   const totalAMO = items_mois.reduce((s, r) => s + r.recuAMO, 0);
   const totalAMC = items_mois.reduce((s, r) => s + r.recuAMC, 0);
@@ -339,6 +449,11 @@ export function buildRecap(items: ResultItem[]) {
     nAnterieur: items_ant.length,
     totalAnterieurAMO,
     totalAnterieurAMC,
+    nRegleM1: items_regleM1.length,
+    nImpayePersistant: items_persist.length,
+    nAnterieurInconnu: items.filter(r => r.statut === 'ANTÉRIEUR INCONNU').length,
+    totalRegleM1: items_regleM1.reduce((s, r) => s + r.totalRecu, 0),
+    totalImpayePersistant: items_persist.reduce((s, r) => s + r.montant, 0),
     total: items.length,
   };
 }

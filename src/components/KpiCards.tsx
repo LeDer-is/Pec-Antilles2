@@ -17,6 +17,14 @@ export default function KpiCards({ recap }: Props) {
         <Kpi label="Reste à percevoir" value={fmt(recap.reste)} color="text-rose" delay={4} />
         <Kpi label="Taux recouvrement" value={pct(recap.taux)} color="text-amber" delay={5} />
       </div>
+      {(recap.nRegleM1 > 0 || recap.nImpayePersistant > 0) && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {recap.nRegleM1 > 0 && <Kpi label="✅ Réglés M-1" value={`${recap.nRegleM1} (${fmt(recap.totalRegleM1)})`} color="text-emerald" delay={10} />}
+          {recap.nImpayePersistant > 0 && <Kpi label="⏳ Impayés persistants (>1 mois)" value={`${recap.nImpayePersistant} (${fmt(recap.totalImpayePersistant)})`} color="text-rose" delay={11} />}
+          {recap.nAnterieurInconnu > 0 && <Kpi label="⚠️ Antérieur inconnu" value={`${recap.nAnterieurInconnu} lignes`} color="text-amber" delay={12} />}
+          {recap.nRegleM1 > 0 && recap.totalFact > 0 && <Kpi label="Encaissé réel (M + M-1)" value={fmt(recap.totalRecu + recap.totalRegleM1)} color="text-cyan-400" delay={13} />}
+        </div>
+      )}
       {recap.nAnterieur > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Kpi label="Paiements actes antérieurs" value={`${recap.nAnterieur} lignes`} color="text-violet-400" delay={6} />

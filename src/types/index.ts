@@ -1,6 +1,6 @@
 // Types centraux PEC Antilles
 
-export type Statut = 'OK' | 'ÉCART' | 'IMPAYÉ' | 'À VÉRIFIER' | 'ORPHELIN' | 'ANTÉRIEUR';
+export type Statut = 'OK' | 'ÉCART' | 'IMPAYÉ' | 'À VÉRIFIER' | 'ORPHELIN' | 'ANTÉRIEUR' | 'RÉGLÉ M-1' | 'IMPAYÉ PERSISTANT' | 'ANTÉRIEUR INCONNU';
 
 export interface RecetteRow {
   fse: string;
@@ -37,6 +37,19 @@ export interface MutuelleRow {
   date: string;
 }
 
+export interface ImpayeRow {
+  fse: string;
+  patient: string;
+  patientNorm: string;
+  date: string;
+  montant: number;
+  resteCharge: number;
+  attenduAMO: number;
+  attenduAMC: number;
+  moisOrigine: string;
+  ageMois: number;
+}
+
 export interface ResultItem {
   fse: string;
   patient: string;
@@ -61,6 +74,9 @@ export interface ResultItem {
   previousStatut?: Statut;
   secuDetail?: { patient: string; montantAMO: number };
   mutDetail?: { lines: { patient: string; montantAMC: number; type: string }[] };
+  moisOrigine?: string;
+  ageMois?: number;
+  resolvedBy?: { type: 'secu' | 'mutuelle'; montant: number; patient: string; date: string };
 }
 
 export interface Recap {
@@ -78,6 +94,11 @@ export interface Recap {
   nAnterieur: number;
   totalAnterieurAMO: number;
   totalAnterieurAMC: number;
+  nRegleM1: number;
+  nImpayePersistant: number;
+  nAnterieurInconnu: number;
+  totalRegleM1: number;
+  totalImpayePersistant: number;
   total: number;
 }
 

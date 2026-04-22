@@ -3,7 +3,8 @@ import { Upload, FileSpreadsheet, Loader2, KeyRound, Bot, CheckCircle2, AlertTri
 import type { AnalysisResults, FilterKey, ResultItem, Statut, MappingResult } from '@/types';
 import { fmt, pct } from '@/lib/utils';
 import { smartLoadFile, applyMappingToDataset, getApiKey, setApiKey, testApiKey, verifyCases, type SuspectCase, COLUMN_SCHEMAS } from '@/lib/ai';
-import { parseRecettes, parseSecu, parseMutuelle, rapprochement, buildRecap } from '@/lib/engine';
+import { parseRecettes, parseSecu, parseMutuelle, rapprochement, buildRecap, parseImpayesCSV } from '@/lib/engine';
+import type { ImpayeRow } from '@/types';
 import UploadCard from '@/components/UploadCard';
 import MappingModal from '@/components/MappingModal';
 import ApiKeyModal from '@/components/ApiKeyModal';
@@ -22,6 +23,7 @@ export default function App() {
   const [recettes, setRecettes] = useState<{ file: File | null; mapping: MappingResult | null; loading: boolean }>({ file: null, mapping: null, loading: false });
   const [secu, setSecu] = useState<{ file: File | null; mapping: MappingResult | null; loading: boolean }>({ file: null, mapping: null, loading: false });
   const [mutuelles, setMutuelles] = useState<{ file: File; mapping: MappingResult | null }[]>([]);
+  const [impayesM1, setImpayesM1] = useState<{ file: File | null; rows: ImpayeRow[] }>({ file: null, rows: [] });
   const [loading, setLoading] = useState<string | null>(null);
   const [results, setResults] = useState<AnalysisResults | null>(null);
   const [filter, setFilter] = useState<FilterKey>('ALL');
@@ -67,6 +69,51 @@ export default function App() {
     setMutuelles(prev => prev.filter((_, i) => i !== idx));
   };
 
+  // ─── Upload impayés M-1 (CSV) ───
+  const handleImpayesUpload = useCallback(async (file: File) => {
+    if (!file.name.match(/\.csv$/i)) {
+      setAlert({ type: 'error', msg: 'Fichier CSV requis pour les impayés reportés' });
+      return;
+    }
+    try {
+      const text = await file.text();
+      const rows = parseImpayesCSV(text);
+      if (!rows.length) throw new Error('Aucune ligne valide dans le CSV');
+      setImpayesM1({ file, rows });
+      setAlert({ type: 'success', msg: `${rows.length} impayé(s) du mois précédent chargé(s)` });
+    } catch (err) {
+      setAlert({ type: 'error', msg: (err as Error).message });
+    }
+  }, []);
+
+  // ─── Export CSV des impayés du mois (à réinjecter le mois suivant) ───
+  const exportImpayes = () => {
+    if (!results) return;
+    const impayes = results.items.filter(r => r.statut === 'IMPAYÉ' || r.statut === 'IMPAYÉ PERSISTANT');
+    if (!impayes.length) {
+      setAlert({ type: 'info', msg: 'Aucun impayé à exporter' });
+      return;
+    }
+    const now = new Date();
+    const mois = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const BOM = '\uFEFF';
+    const sep = ';';
+    const header = ['FSE', 'Patient', 'Date', 'Montant', 'Reste charge', 'Attendu AMO', 'Attendu AMC', 'Mois origine', 'Age mois'];
+    const lines = [header.join(sep)];
+    impayes.forEach(r => {
+      const origine = r.moisOrigine || mois;
+      const age = (r.ageMois || 0) + 1;
+      lines.push([
+        r.fse, `"${r.patient}"`, r.date || '', r.montant, r.resteCharge, r.attenduAMO, r.attenduAMC, origine, age,
+      ].join(sep));
+    });
+    const blob = new Blob([BOM + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `pec-impayes-a-reporter-${mois}.csv`;
+    a.click();
+  };
+
   // ─── Run analysis ───
   const runAnalysis = async () => {
     if (!recettes.file || !secu.file) {
@@ -87,7 +134,7 @@ export default function App() {
           mutRows = mutRows.concat(parseMutuelle(md, m.file.name));
         }
       });
-      const res = rapprochement(recettesRows, secuRows, mutRows);
+      const res = rapprochement(recettesRows, secuRows, mutRows, impayesM1.rows);
       setResults(res);
       setAlert(null);
     } catch (err) {
@@ -101,6 +148,7 @@ export default function App() {
     setRecettes({ file: null, mapping: null, loading: false });
     setSecu({ file: null, mapping: null, loading: false });
     setMutuelles([]);
+    setImpayesM1({ file: null, rows: [] });
     setResults(null);
     setFilter('ALL');
     setSearch('');
@@ -294,6 +342,9 @@ export default function App() {
                 <button onClick={exportAudit} className="btn-ghost text-xs md:text-sm">
                   <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">Audit</span>
                 </button>
+                <button onClick={exportImpayes} className="btn-ghost text-xs md:text-sm text-amber" title="Exporter les impayés à réinjecter le mois suivant">
+                  <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">Impayés CSV</span>
+                </button>
                 <button onClick={reset} className="btn-ghost text-rose text-xs md:text-sm font-semibold">
                   Réinitialiser
                 </button>
@@ -369,6 +420,38 @@ export default function App() {
                 }} />
               </label>
             </div>
+          </div>
+
+          {/* Impayés du mois précédent (optionnel) */}
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3 flex items-center gap-2">
+              <FileText className="w-4 h-4" /> Impayés du mois précédent (optionnel)
+              <span className="text-[10px] normal-case text-slate-500 font-normal">— CSV exporté le mois dernier</span>
+            </h2>
+            <label className={`block p-4 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
+              impayesM1.file ? 'border-amber/50 bg-amber/10' : 'border-white/20 hover:border-amber'
+            }`}>
+              <input type="file" accept=".csv" className="hidden" onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleImpayesUpload(f);
+                e.target.value = '';
+              }} />
+              {impayesM1.file ? (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-semibold flex items-center gap-2">⏳ {impayesM1.file.name}</div>
+                    <div className="text-xs text-slate-400 mt-1">{impayesM1.rows.length} impayé(s) à réconcilier</div>
+                  </div>
+                  <button onClick={(e) => { e.preventDefault(); setImpayesM1({ file: null, rows: [] }); }} className="text-rose hover:text-rose/70 text-sm">Retirer</button>
+                </div>
+              ) : (
+                <div className="text-center text-sm text-slate-400">
+                  <div className="text-2xl mb-1">⏳</div>
+                  Cliquez pour charger le CSV des impayés du mois précédent
+                  <div className="text-[10px] mt-1 text-slate-500">Permet de détecter les règlements décalés (sécu/mutuelle qui paient 7-30j après la FSE)</div>
+                </div>
+              )}
+            </label>
           </div>
 
           {/* Run button */}
