@@ -354,7 +354,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6 space-y-6">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Alert */}
         {alert && (
           <div className={`px-4 py-3 rounded-lg border text-sm flex items-start gap-3 ${
@@ -370,11 +370,11 @@ export default function App() {
         )}
 
         {/* Upload section */}
-        <section className="space-y-4">
+        <section className="space-y-3 md:space-y-4">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 flex items-center gap-2">
             <Upload className="w-4 h-4" /> Fichiers requis
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
             <UploadCard
               label="Livre de Recettes"
               icon="📋"
@@ -402,7 +402,7 @@ export default function App() {
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3 flex items-center gap-2">
               <FileSpreadsheet className="w-4 h-4" /> Mutuelles ({mutuelles.length})
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               {mutuelles.map((m, i) => (
                 <div key={i} className="relative p-3 rounded-lg border border-emerald/30 bg-emerald/10">
                   <button onClick={() => removeMutuelle(i)} className="absolute top-1 right-2 text-rose hover:text-rose/70 text-lg leading-none">×</button>
@@ -455,11 +455,11 @@ export default function App() {
           </div>
 
           {/* Run button */}
-          <div className="flex justify-end">
+          <div className="flex justify-stretch sm:justify-end">
             <button
               disabled={!readyToAnalyse || !!loading}
               onClick={runAnalysis}
-              className="px-6 py-3 rounded-lg bg-gradient-to-r from-emerald to-sky text-black font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 shadow-lg shadow-emerald/20 hover:shadow-emerald/40 transition-shadow"
+              className="w-full sm:w-auto px-6 py-3 rounded-lg bg-gradient-to-r from-emerald to-sky text-black font-semibold disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-emerald/20 hover:shadow-emerald/40 transition-shadow"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
               {loading || 'Lancer l\'analyse'}

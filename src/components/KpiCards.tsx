@@ -39,9 +39,9 @@ export default function KpiCards({ recap }: Props) {
 
 function Kpi({ label, value, color, delay }: { label: string; value: string; color: string; delay: number }) {
   return (
-    <div className="bg-raised border border-white/5 rounded-lg p-4 animate-fade-in-up" style={{ animationDelay: `${delay * 60}ms` }}>
-      <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">{label}</div>
-      <div className={`text-lg font-bold ${color}`}>{value}</div>
+    <div className="bg-raised border border-white/5 rounded-lg p-3 md:p-4 animate-fade-in-up overflow-hidden" style={{ animationDelay: `${delay * 60}ms` }}>
+      <div className="text-[9px] md:text-[10px] text-slate-400 uppercase tracking-wider mb-1 truncate">{label}</div>
+      <div className={`text-sm md:text-lg font-bold ${color} truncate`}>{value}</div>
     </div>
   );
 }
