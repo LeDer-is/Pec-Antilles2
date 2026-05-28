@@ -3,14 +3,19 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  html, body {
     overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
   }
   body {
     background: #0B1120;
     color: #F1F5F9;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-    overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
   }
   .font-mono, code {
@@ -29,10 +34,14 @@
 
 @layer components {
   .btn-ghost {
-    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/5 text-sm text-slate-200 transition-colors;
+    @apply inline-flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/5 text-xs text-slate-200 transition-colors whitespace-nowrap;
   }
   .btn-primary {
     @apply inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-emerald to-sky text-black font-semibold text-sm hover:shadow-lg hover:shadow-emerald/30 transition-shadow;
+  }
+  /* Force all containers to never overflow */
+  .safe-container {
+    @apply w-full max-w-full overflow-hidden;
   }
 }
 

@@ -23,9 +23,9 @@ const SORT_COLS: { key: SortKey; label: string; align: string }[] = [
   { key: 'patient', label: 'Patient', align: 'text-left' },
   { key: 'date', label: 'Date', align: 'text-left' },
   { key: 'montant', label: 'Facturé', align: 'text-right' },
-  { key: 'recuAMO', label: 'Reçu AMO', align: 'text-right' },
-  { key: 'recuAMC', label: 'Reçu AMC', align: 'text-right' },
-  { key: 'totalRecu', label: 'Total reçu', align: 'text-right' },
+  { key: 'recuAMO', label: 'AMO', align: 'text-right' },
+  { key: 'recuAMC', label: 'AMC', align: 'text-right' },
+  { key: 'totalRecu', label: 'Total', align: 'text-right' },
   { key: 'ecart', label: 'Écart', align: 'text-right' },
   { key: 'statut', label: 'Statut', align: 'text-left' },
 ];
@@ -45,7 +45,6 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
     setPage(0);
   }, [sortKey]);
 
-  // Filtering
   const filtered = useMemo(() => {
     let list = items;
     if (filter === 'ALL') list = list.filter(r => r.statut !== 'ORPHELIN' && r.statut !== 'ANTÉRIEUR' && r.statut !== 'ANTÉRIEUR INCONNU' && r.statut !== 'RÉGLÉ M-1' && r.statut !== 'IMPAYÉ PERSISTANT');
@@ -70,39 +69,40 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
-  // Reset page if filter changes and current page is out of range
   useEffect(() => {
     if (page > 0 && page >= totalPages) setPage(0);
   }, [page, totalPages]);
 
-  const chips: { key: FilterKey; label: string; cls: string }[] = [
-    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur - recap.nRegleM1 - recap.nImpayePersistant})`, cls: 'chip-all' },
-    { key: 'OK', label: `✅ OK (${recap.nOK})`, cls: 'chip-ok' },
-    { key: 'ÉCART', label: `⚠️ Écarts (${recap.nEcart})`, cls: 'chip-ecart' },
-    { key: 'IMPAYÉ', label: `❌ Impayés (${recap.nImpaye})`, cls: 'chip-impaye' },
-    { key: 'À VÉRIFIER', label: `🔍 À vérifier (${recap.nVerif})`, cls: 'chip-verif' },
-    ...(recap.nRegleM1 > 0 ? [{ key: 'RÉGLÉ M-1' as FilterKey, label: `✅ Réglés M-1 (${recap.nRegleM1})`, cls: 'chip-ok' }] : []),
-    ...(recap.nImpayePersistant > 0 ? [{ key: 'IMPAYÉ PERSISTANT' as FilterKey, label: `⏳ Persistants (${recap.nImpayePersistant})`, cls: 'chip-impaye' }] : []),
-    ...(recap.nAnterieurInconnu > 0 ? [{ key: 'ANTÉRIEUR INCONNU' as FilterKey, label: `⚠️ Ant. inconnu (${recap.nAnterieurInconnu})`, cls: 'chip-anterieur' }] : []),
-    { key: 'ANTÉRIEUR', label: `📅 Actes antérieurs (${recap.nAnterieur - recap.nAnterieurInconnu})`, cls: 'chip-anterieur' },
+  const chips: { key: FilterKey; label: string }[] = [
+    { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur - recap.nRegleM1 - recap.nImpayePersistant})` },
+    { key: 'OK', label: `✅ ${recap.nOK}` },
+    { key: 'ÉCART', label: `⚠️ ${recap.nEcart}` },
+    { key: 'IMPAYÉ', label: `❌ ${recap.nImpaye}` },
+    { key: 'À VÉRIFIER', label: `🔍 ${recap.nVerif}` },
+    ...(recap.nRegleM1 > 0 ? [{ key: 'RÉGLÉ M-1' as FilterKey, label: `✅ M-1 (${recap.nRegleM1})` }] : []),
+    ...(recap.nImpayePersistant > 0 ? [{ key: 'IMPAYÉ PERSISTANT' as FilterKey, label: `⏳ ${recap.nImpayePersistant}` }] : []),
+    ...(recap.nAnterieurInconnu > 0 ? [{ key: 'ANTÉRIEUR INCONNU' as FilterKey, label: `⚠️ Ant.? (${recap.nAnterieurInconnu})` }] : []),
+    { key: 'ANTÉRIEUR', label: `📅 Ant. (${recap.nAnterieur - recap.nAnterieurInconnu})` },
   ];
 
   return (
-    <div className="space-y-3">
-      {/* Filters */}
+    <div className="space-y-2 sm:space-y-3 w-full">
+      {/* Filters — horizontal scroll on mobile */}
       <div className="space-y-2">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-          {chips.map(c => (
-            <button
-              key={c.key}
-              onClick={() => { setFilter(c.key); setPage(0); }}
-              className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-medium border transition-colors ${
-                filter === c.key ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 hover:bg-white/5'
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
+        <div className="overflow-x-auto -mx-3 px-3 sm:mx-0 sm:px-0 pb-1">
+          <div className="flex items-center gap-1 sm:gap-1.5 sm:flex-wrap w-max sm:w-auto">
+            {chips.map(c => (
+              <button
+                key={c.key}
+                onClick={() => { setFilter(c.key); setPage(0); }}
+                className={`px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium border transition-colors whitespace-nowrap shrink-0 ${
+                  filter === c.key ? 'bg-white/10 border-white/20' : 'bg-white/[0.02] border-white/5 active:bg-white/5'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="relative w-full sm:w-64">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
@@ -116,7 +116,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
         </div>
       </div>
 
-      {/* Table — Desktop */}
+      {/* Table — Desktop only (md+) */}
       <div className="border border-white/5 rounded-lg overflow-hidden hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -125,10 +125,10 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
                 {SORT_COLS.map(col => (
                   <th
                     key={col.key}
-                    className={`${col.align} p-2.5 cursor-pointer select-none hover:text-slate-200 transition-colors`}
+                    className={`${col.align} p-2 cursor-pointer select-none hover:text-slate-200 transition-colors whitespace-nowrap`}
                     onClick={() => toggleSort(col.key)}
                   >
-                    <span className="inline-flex items-center gap-1">
+                    <span className="inline-flex items-center gap-0.5">
                       {col.label}
                       {sortKey === col.key ? (
                         sortDir === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
@@ -143,76 +143,71 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
             <tbody>
               {paginated.map((r, i) => (
                 <tr key={r.fse + '_' + i} className="border-t border-white/5 hover:bg-white/[0.04] cursor-pointer transition-colors" onClick={() => onRowClick?.(r)}>
-                  <td className="p-2.5 font-mono text-xs">{r.fse}</td>
-                  <td className="p-2.5 truncate max-w-[180px]">{r.patient}</td>
-                  <td className="p-2.5 text-xs text-slate-400">{r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</td>
-                  <td className="p-2.5 text-right tabular-nums">{fmt(r.montant)}</td>
-                  <td className="p-2.5 text-right tabular-nums text-sky">{fmt(r.recuAMO)}</td>
-                  <td className="p-2.5 text-right tabular-nums text-indigo">{fmt(r.recuAMC)}</td>
-                  <td className="p-2.5 text-right tabular-nums font-semibold">{fmt(r.totalRecu)}</td>
-                  <td className={`p-2.5 text-right tabular-nums ${r.ecart > 0.02 ? 'text-rose' : r.ecart < -0.02 ? 'text-emerald' : 'text-slate-500'}`}>{fmt(r.ecart)}</td>
-                  <td className="p-2.5"><StatusBadge statut={r.statut} validated={r.userValidated} /></td>
+                  <td className="p-2 font-mono text-xs">{r.fse}</td>
+                  <td className="p-2 truncate max-w-[160px]">{r.patient}</td>
+                  <td className="p-2 text-xs text-slate-400 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</td>
+                  <td className="p-2 text-right tabular-nums">{fmt(r.montant)}</td>
+                  <td className="p-2 text-right tabular-nums text-sky">{fmt(r.recuAMO)}</td>
+                  <td className="p-2 text-right tabular-nums text-indigo">{fmt(r.recuAMC)}</td>
+                  <td className="p-2 text-right tabular-nums font-semibold">{fmt(r.totalRecu)}</td>
+                  <td className={`p-2 text-right tabular-nums ${r.ecart > 0.02 ? 'text-rose' : r.ecart < -0.02 ? 'text-emerald' : 'text-slate-500'}`}>{fmt(r.ecart)}</td>
+                  <td className="p-2"><StatusBadge statut={r.statut} validated={r.userValidated} /></td>
                 </tr>
               ))}
               {!paginated.length && (
                 <tr>
-                  <td colSpan={9} className="p-8 text-center text-slate-500 text-sm">Aucune ligne à afficher</td>
+                  <td colSpan={9} className="p-8 text-center text-slate-500 text-sm">Aucune ligne</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination — Desktop */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between p-2 border-t border-white/5 text-xs bg-raised">
-            <div className="text-slate-400">
-              {filtered.length} lignes · Page {page + 1}/{totalPages}
-            </div>
+            <div className="text-slate-400">{filtered.length} lignes · {page + 1}/{totalPages}</div>
             <div className="flex gap-1">
-              <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">← Préc.</button>
-              <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">Suiv. →</button>
+              <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">←</button>
+              <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">→</button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Mobile card view */}
+      {/* Mobile card view (below md) */}
       <div className="md:hidden space-y-2">
         {paginated.map((r, i) => (
           <div
             key={r.fse + '_m_' + i}
-            className="p-3 rounded-lg border border-white/5 bg-raised active:bg-white/[0.04] cursor-pointer"
+            className="p-2.5 rounded-lg border border-white/5 bg-raised active:bg-white/[0.04] cursor-pointer"
             onClick={() => onRowClick?.(r)}
           >
-            <div className="flex items-center justify-between gap-2 mb-1.5">
-              <span className="text-xs font-semibold truncate flex-1">{r.patient}</span>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <span className="text-xs font-semibold truncate flex-1 min-w-0">{r.patient}</span>
               <StatusBadge statut={r.statut} validated={r.userValidated} />
             </div>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-[10px] sm:text-[11px] min-w-0">
-              <div><span className="text-slate-500">FSE</span> <span className="font-mono">{r.fse}</span></div>
-              <div><span className="text-slate-500">Date</span> {r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</div>
-              <div className="text-right"><span className="text-slate-500">Facturé</span> <span className="font-semibold">{fmt(r.montant)}</span></div>
-              <div><span className="text-slate-500">AMO</span> <span className="text-sky">{fmt(r.recuAMO)}</span></div>
-              <div><span className="text-slate-500">AMC</span> <span className="text-indigo">{fmt(r.recuAMC)}</span></div>
-              <div className="text-right"><span className="text-slate-500">Écart</span> <span className={r.ecart > 0.02 ? 'text-rose' : r.ecart < -0.02 ? 'text-emerald' : 'text-slate-500'}>{fmt(r.ecart)}</span></div>
+            <div className="grid grid-cols-3 gap-x-2 gap-y-0.5 text-[10px]">
+              <div className="truncate"><span className="text-slate-500">FSE </span><span className="font-mono">{r.fse}</span></div>
+              <div><span className="text-slate-500">Date </span>{r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</div>
+              <div className="text-right"><span className="text-slate-500">Fact. </span><span className="font-semibold">{fmt(r.montant)}</span></div>
+              <div><span className="text-slate-500">AMO </span><span className="text-sky">{fmt(r.recuAMO)}</span></div>
+              <div><span className="text-slate-500">AMC </span><span className="text-indigo">{fmt(r.recuAMC)}</span></div>
+              <div className="text-right"><span className="text-slate-500">Éc. </span><span className={r.ecart > 0.02 ? 'text-rose' : r.ecart < -0.02 ? 'text-emerald' : 'text-slate-500'}>{fmt(r.ecart)}</span></div>
             </div>
           </div>
         ))}
         {!paginated.length && (
-          <div className="p-8 text-center text-slate-500 text-sm">Aucune ligne à afficher</div>
+          <div className="p-6 text-center text-slate-500 text-sm">Aucune ligne</div>
         )}
       </div>
 
       {/* Pagination — Mobile */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between p-2 text-xs md:hidden">
-          <div className="text-slate-400">
-            {filtered.length} lignes · Page {page + 1}/{totalPages}
-          </div>
+          <div className="text-slate-400">{filtered.length} lignes · {page + 1}/{totalPages}</div>
           <div className="flex gap-1">
-            <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">← Préc.</button>
-            <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">Suiv. →</button>
+            <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">←</button>
+            <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1} className="px-2 py-1 rounded hover:bg-white/5 disabled:opacity-30">→</button>
           </div>
         </div>
       )}
@@ -234,9 +229,9 @@ function StatusBadge({ statut, validated }: { statut: string; validated?: boolea
   }[statut] || 'bg-white/5 text-slate-400';
   const icon = { 'OK': '✅', 'ÉCART': '⚠️', 'IMPAYÉ': '❌', 'À VÉRIFIER': '🔍', 'ORPHELIN': '🔍', 'ANTÉRIEUR': '📅', 'ANTÉRIEUR INCONNU': '⚠️', 'RÉGLÉ M-1': '✅', 'IMPAYÉ PERSISTANT': '⏳' }[statut] || '';
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${cls}`}>
+    <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold border shrink-0 whitespace-nowrap ${cls}`}>
       {icon} {statut}
-      {validated && <span className="text-indigo ml-0.5" title="Validé manuellement">👤✓</span>}
+      {validated && <span className="text-indigo ml-0.5">👤✓</span>}
     </span>
   );
 }

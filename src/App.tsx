@@ -313,48 +313,51 @@ export default function App() {
   const readyToAnalyse = !!(recettes.file && secu.file && !recettes.loading && !secu.loading);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden">
       {/* Header */}
       <header className="border-b border-white/5 bg-raised/80 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 md:gap-3 shrink-0">
-            <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-emerald to-sky flex items-center justify-center text-xl md:text-2xl">🏥</div>
-            <div>
-              <h1 className="text-sm md:text-lg font-semibold">PEC Antilles Pro</h1>
-              <p className="text-[10px] md:text-xs text-slate-400 hidden sm:block">Rapprochement Tiers Payant · Powered by Claude</p>
+        <div className="w-full max-w-7xl mx-auto px-3 md:px-6 py-2 md:py-4">
+          {/* Top row: logo + API key */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald to-sky flex items-center justify-center text-lg shrink-0">🏥</div>
+              <div className="min-w-0">
+                <h1 className="text-sm md:text-lg font-semibold truncate">PEC Antilles Pro</h1>
+                <p className="text-[10px] text-slate-400 hidden sm:block">Rapprochement Tiers Payant</p>
+              </div>
             </div>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap justify-end max-w-[60%] sm:max-w-none">
-            <button onClick={() => setApiKeyOpen(true)} className="btn-ghost text-xs md:text-sm">
-              <KeyRound className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{hasApiKey ? '✓ Clé API' : 'Clé API'}</span><span className="sm:hidden">{hasApiKey ? '✓' : '🔑'}</span>
+            <button onClick={() => setApiKeyOpen(true)} className="btn-ghost shrink-0">
+              <KeyRound className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{hasApiKey ? '✓ Clé API' : 'Clé API'}</span>
             </button>
-            {results && (
-              <>
-                <button onClick={() => setAiVerifyOpen(true)} className="btn-ghost text-xs md:text-sm">
-                  <Bot className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden md:inline">Vérifier IA</span>
-                </button>
-                <button onClick={exportXLSX} className="btn-ghost text-xs md:text-sm">
-                  <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden md:inline">Excel</span>
-                </button>
-                <button onClick={exportCSV} className="btn-ghost text-xs md:text-sm">
-                  <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">CSV</span>
-                </button>
-                <button onClick={exportAudit} className="btn-ghost text-xs md:text-sm">
-                  <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">Audit</span>
-                </button>
-                <button onClick={exportImpayes} className="btn-ghost text-xs md:text-sm text-amber" title="Exporter les impayés à réinjecter le mois suivant">
-                  <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">Impayés CSV</span>
-                </button>
-                <button onClick={reset} className="btn-ghost text-rose text-xs md:text-sm font-semibold">
-                  <span className="hidden sm:inline">Réinitialiser</span><span className="sm:hidden">✕</span>
-                </button>
-              </>
-            )}
           </div>
+          {/* Action bar — only when results exist */}
+          {results && (
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-white/5 overflow-x-auto pb-0.5 -mx-1 px-1">
+              <button onClick={() => setAiVerifyOpen(true)} className="btn-ghost shrink-0">
+                <Bot className="w-3.5 h-3.5" /> <span className="hidden sm:inline">IA</span>
+              </button>
+              <button onClick={exportXLSX} className="btn-ghost shrink-0">
+                <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Excel</span>
+              </button>
+              <button onClick={exportCSV} className="btn-ghost shrink-0">
+                <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">CSV</span>
+              </button>
+              <button onClick={exportAudit} className="btn-ghost shrink-0">
+                <FileText className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Audit</span>
+              </button>
+              <button onClick={exportImpayes} className="btn-ghost text-amber shrink-0">
+                <Download className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Impayés</span>
+              </button>
+              <button onClick={reset} className="btn-ghost text-rose font-semibold shrink-0 ml-auto">
+                ✕ <span className="hidden sm:inline">Réinit.</span>
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <main className="w-full max-w-7xl mx-auto px-3 md:px-6 py-3 md:py-6 space-y-3 md:space-y-6">
         {/* Alert */}
         {alert && (
           <div className={`px-4 py-3 rounded-lg border text-sm flex items-start gap-3 ${

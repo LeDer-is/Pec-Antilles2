@@ -52,12 +52,12 @@ export default function ApiKeyModal({ open, onClose }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-6" onClick={onClose}>
-      <div className="bg-raised border border-white/10 rounded-xl p-6 w-full max-w-lg relative" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-3" onClick={onClose}>
+      <div className="bg-raised border border-white/10 rounded-xl p-4 sm:p-6 w-full max-w-lg relative" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded hover:bg-white/5 flex items-center justify-center">
           <X className="w-4 h-4" />
         </button>
-        <h2 className="text-lg font-semibold mb-2">🔑 Clé API Anthropic</h2>
+        <h2 className="text-base sm:text-lg font-semibold mb-2">🔑 Clé API Anthropic</h2>
         <p className="text-xs text-slate-400 mb-4 leading-relaxed">
           Stockée <strong>uniquement dans ton navigateur</strong>. Envoyée seulement à l'API Anthropic. Créer une clé :{' '}
           <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener" className="text-sky hover:underline">console.anthropic.com</a>
@@ -79,11 +79,11 @@ export default function ApiKeyModal({ open, onClose }: Props) {
           {status.type === 'error' && <XCircle className="w-3 h-3" />}
           {status.msg}
         </div>
-        <div className="flex items-center justify-between mt-5">
-          <button onClick={clear} className="btn-ghost text-rose text-xs">🗑 Supprimer</button>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 mt-5">
+          <button onClick={clear} className="btn-ghost text-rose text-xs justify-center">🗑 Supprimer</button>
           <div className="flex gap-2">
-            <button onClick={onClose} className="btn-ghost">Annuler</button>
-            <button onClick={save} disabled={status.type === 'testing'} className="btn-primary">Enregistrer & Tester</button>
+            <button onClick={onClose} className="btn-ghost flex-1 justify-center">Annuler</button>
+            <button onClick={save} disabled={status.type === 'testing'} className="btn-primary flex-1 justify-center">Enregistrer & Tester</button>
           </div>
         </div>
       </div>
