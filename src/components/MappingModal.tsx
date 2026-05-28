@@ -16,8 +16,8 @@ export default function MappingModal({ open, onClose, mapping, fileType, filenam
   const allFields = [...schema.required, ...schema.optional];
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-6 overflow-y-auto" onClick={onClose}>
-      <div className="bg-raised border border-white/10 rounded-xl p-6 w-full max-w-4xl relative my-10" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-start justify-center p-2 sm:p-6 overflow-y-auto" onClick={onClose}>
+      <div className="bg-raised border border-white/10 rounded-xl p-4 sm:p-6 w-full max-w-[95vw] md:max-w-4xl relative my-4 sm:my-10" onClick={(e) => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded hover:bg-white/5 flex items-center justify-center">
           <X className="w-4 h-4" />
         </button>

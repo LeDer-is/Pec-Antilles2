@@ -189,7 +189,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
               <span className="text-xs font-semibold truncate flex-1">{r.patient}</span>
               <StatusBadge statut={r.statut} validated={r.userValidated} />
             </div>
-            <div className="grid grid-cols-3 gap-y-1 text-[11px]">
+            <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-[10px] sm:text-[11px] min-w-0">
               <div><span className="text-slate-500">FSE</span> <span className="font-mono">{r.fse}</span></div>
               <div><span className="text-slate-500">Date</span> {r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</div>
               <div className="text-right"><span className="text-slate-500">Facturé</span> <span className="font-semibold">{fmt(r.montant)}</span></div>

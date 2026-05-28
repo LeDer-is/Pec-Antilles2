@@ -18,7 +18,7 @@ export default function DetailPanel({ item, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end" onClick={onClose}>
       <div
-        className="w-full max-w-md bg-raised border-l border-white/10 h-full overflow-y-auto animate-slide-in"
+        className="w-full max-w-md bg-raised border-l border-white/10 h-full overflow-y-auto animate-slide-in sm:max-w-md max-sm:max-w-full"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sticky top-0 bg-raised/95 backdrop-blur border-b border-white/5 px-5 py-4 flex items-center justify-between z-10">

@@ -316,7 +316,7 @@ export default function App() {
     <div className="min-h-screen">
       {/* Header */}
       <header className="border-b border-white/5 bg-raised/80 backdrop-blur sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
             <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg bg-gradient-to-br from-emerald to-sky flex items-center justify-center text-xl md:text-2xl">🏥</div>
             <div>
@@ -324,7 +324,7 @@ export default function App() {
               <p className="text-[10px] md:text-xs text-slate-400 hidden sm:block">Rapprochement Tiers Payant · Powered by Claude</p>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-wrap justify-end max-w-[60%] sm:max-w-none">
             <button onClick={() => setApiKeyOpen(true)} className="btn-ghost text-xs md:text-sm">
               <KeyRound className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden sm:inline">{hasApiKey ? '✓ Clé API' : 'Clé API'}</span><span className="sm:hidden">{hasApiKey ? '✓' : '🔑'}</span>
             </button>
@@ -346,7 +346,7 @@ export default function App() {
                   <Download className="w-3.5 h-3.5 md:w-4 md:h-4" /> <span className="hidden lg:inline">Impayés CSV</span>
                 </button>
                 <button onClick={reset} className="btn-ghost text-rose text-xs md:text-sm font-semibold">
-                  Réinitialiser
+                  <span className="hidden sm:inline">Réinitialiser</span><span className="sm:hidden">✕</span>
                 </button>
               </>
             )}
