@@ -145,7 +145,7 @@ const ResultsTable = React.memo(function ResultsTable({ items, filter, setFilter
                 <tr key={r.fse + '_' + i} className="border-t border-white/5 hover:bg-white/[0.04] cursor-pointer transition-colors" onClick={() => onRowClick?.(r)}>
                   <td className="p-2 font-mono text-xs">{r.fse}</td>
                   <td className="p-2 truncate max-w-[160px]">{r.patient}</td>
-                  <td className="p-2 text-xs text-slate-400 whitespace-nowrap">{r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</td>
+                  <td className="p-2 text-xs text-slate-400 whitespace-nowrap">{r.date || '—'}</td>
                   <td className="p-2 text-right tabular-nums">{fmt(r.montant)}</td>
                   <td className="p-2 text-right tabular-nums text-sky">{fmt(r.recuAMO)}</td>
                   <td className="p-2 text-right tabular-nums text-indigo">{fmt(r.recuAMC)}</td>
@@ -188,7 +188,7 @@ const ResultsTable = React.memo(function ResultsTable({ items, filter, setFilter
             </div>
             <div className="grid grid-cols-3 gap-x-2 gap-y-0.5 text-[10px]">
               <div className="truncate"><span className="text-slate-500">FSE </span><span className="font-mono">{r.fse}</span></div>
-              <div><span className="text-slate-500">Date </span>{r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</div>
+              <div><span className="text-slate-500">Date </span>{r.date || '—'}</div>
               <div className="text-right"><span className="text-slate-500">Fact. </span><span className="font-semibold">{fmt(r.montant)}</span></div>
               <div><span className="text-slate-500">AMO </span><span className="text-sky">{fmt(r.recuAMO)}</span></div>
               <div><span className="text-slate-500">AMC </span><span className="text-indigo">{fmt(r.recuAMC)}</span></div>

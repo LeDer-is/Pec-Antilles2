@@ -14,6 +14,40 @@ export const normFSE = (s: string): string => {
   return s.replace(/^0+/, '').trim() || '0';
 };
 
+/** Parse any date format and return DD/MM/YYYY (short french format) */
+export const parseDate = (v: unknown): string => {
+  if (v == null || v === '') return '';
+  const s = String(v).trim();
+  if (!s) return '';
+
+  // Already DD/MM/YYYY
+  const shortMatch = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (shortMatch) {
+    const [, d, m, y] = shortMatch;
+    return `${d.padStart(2, '0')}/${m.padStart(2, '0')}/${y}`;
+  }
+
+  // YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const [, y, m, d] = isoMatch;
+    return `${d}/${m}/${y}`;
+  }
+
+  // JS Date string (from Excel parsing): "Mon Jan 05 2026 00:00:00 GMT..."
+  // or any parseable date string
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    if (year > 1900 && year < 2100) return `${day}/${month}/${year}`;
+  }
+
+  // Fallback: return as-is
+  return s;
+};
+
 export const normName = (s: string): string => {
   if (!s) return '';
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')

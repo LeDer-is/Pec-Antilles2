@@ -1,5 +1,5 @@
 import type { RecetteRow, SecuRow, MutuelleRow, ImpayeRow, ResultItem, AnalysisResults, Statut } from '@/types';
-import { toNum, toStr, normName, normFSE, findCol, getVal, nameScore } from './utils';
+import { toNum, toStr, normName, normFSE, parseDate, findCol, getVal, nameScore } from './utils';
 
 export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
   if (!data.length) return [];
@@ -33,7 +33,7 @@ export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
     const mutuelle = toStr(getVal(r, cOrgAMC ?? null));
     return {
       fse, patient, patientNorm: normName(patient),
-      date: toStr(getVal(r, cDate)),
+      date: parseDate(getVal(r, cDate)),
       montant: toNum(getVal(r, cMontant)),
       attenduAMO: toNum(getVal(r, cAMO)),
       attenduAMC: toNum(getVal(r, cAMC)),
@@ -65,7 +65,7 @@ export function parseSecu(data: Record<string, unknown>[]): SecuRow[] {
       patient: toStr(getVal(r, cPatient)),
       patientNorm: normName(toStr(getVal(r, cPatient))),
       montantAMO: toNum(getVal(r, cAMO)),
-      date: toStr(getVal(r, cDate)),
+      date: parseDate(getVal(r, cDate)),
     };
   }).filter((r): r is SecuRow => r !== null);
 }
@@ -135,7 +135,7 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
       return {
         fse, type, patient, patientNorm: normName(patient),
         montantAMC,
-        date: toStr(getVal(r, findCol(h, ['DATE DE VIREMENT', 'DATE DE CREATION', 'DATE DEBUT DES SOINS']) || '')),
+        date: parseDate(getVal(r, findCol(h, ['DATE DE VIREMENT', 'DATE DE CREATION', 'DATE DEBUT DES SOINS']) || '')),
       };
     }
 
@@ -147,7 +147,7 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
     return {
       fse, type, patient, patientNorm: normName(patient),
       montantAMC: toNum(getVal(r, cMontant)),
-      date: toStr(getVal(r, findCol(h, ['TRAITE LE', 'DATE SOINS', 'DATE']) || '')),
+      date: parseDate(getVal(r, findCol(h, ['TRAITE LE', 'DATE SOINS', 'DATE']) || '')),
     };
   }).filter((r): r is MutuelleRow => r !== null);
 }

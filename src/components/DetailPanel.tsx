@@ -24,7 +24,7 @@ export default function DetailPanel({ item, onClose }: Props) {
         <div className="sticky top-0 bg-raised/95 backdrop-blur border-b border-white/5 px-4 py-3 flex items-center justify-between z-10">
           <div className="min-w-0 flex-1 mr-2">
             <div className="font-semibold text-base truncate">{r.patient || `FSE ${r.fse}`}</div>
-            <div className="text-[10px] sm:text-xs text-slate-400">FSE {r.fse} · {r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'}</div>
+            <div className="text-[10px] sm:text-xs text-slate-400">FSE {r.fse} · {r.date || '—'}</div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded hover:bg-white/5 flex items-center justify-center shrink-0">
             <X className="w-4 h-4" />
@@ -61,7 +61,7 @@ export default function DetailPanel({ item, onClose }: Props) {
           {/* Informations */}
           <Section title="Informations">
             <Row label="N° FSE" value={r.fse} />
-            <Row label="Date" value={r.date ? new Date(r.date).toLocaleDateString('fr-FR') : '—'} />
+            <Row label="Date" value={r.date || '—'} />
             <Row label="Match" value={r.matchType === 'fse' ? 'Par N° FSE' : r.matchType === 'nom' ? 'Par nom patient' : r.matchType} />
             {r.isCMU && <Row label="CMU" value="✅ AMC couvert" />}
             {r.mutSources && <Row label="Source mut." value={r.mutSources} />}
