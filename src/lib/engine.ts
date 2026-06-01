@@ -1,18 +1,18 @@
 import type { RecetteRow, SecuRow, MutuelleRow, ImpayeRow, ResultItem, AnalysisResults, Statut } from '@/types';
-import { toNum, toStr, normName, findCol, getVal, nameScore } from './utils';
+import { toNum, toStr, normName, normFSE, findCol, getVal, nameScore } from './utils';
 
 export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
   if (!data.length) return [];
   const h = Object.keys(data[0]);
-  const cFSE = findCol(h, ['FSE', /N.*FSE/]);
+  const cFSE = findCol(h, ['NUMERO FSE', 'FSE', /N.*FSE/]);
   const cPatient = findCol(h, ['PATIENT']);
-  const cNom = findCol(h, [/^NOM$/]);
-  const cPrenom = findCol(h, ['PRENOM', 'PRÉNOM']);
+  const cNom = findCol(h, [/^NOM$/, 'NOM DU BENEFICIAIRE']);
+  const cPrenom = findCol(h, ['PRENOM', 'PRÉNOM', 'PRENOM DU BENEFICIAIRE']);
   const cDate = findCol(h, ['DATE FSE', 'DATE ENCAISSEMENT', 'DATE']);
   const cMontant = findCol(h, ['MONTANT FACTURE', 'MONTANT']);
-  const cAMO = findCol(h, ['AMO ORTHALIS', 'MONTANT AMO ORTH']);
-  const cAMC = findCol(h, ['AMC ORTHALIS', 'MONTANT AMC ORTH']);
-  const cReste = findCol(h, ['RESTE A CHARGE', 'RESTE CHARGE']);
+  const cAMO = findCol(h, ['MONTANT AMO ORTHALIS', 'AMO ORTHALIS', 'MONTANT AMO ORTH']);
+  const cAMC = findCol(h, ['MONTANT AMC ORTHALIS', 'AMC ORTHALIS', 'MONTANT AMC ORTH']);
+  const cReste = findCol(h, ['RESTE A CHARGE PATIENT ORTHALIS', 'RESTE A CHARGE', 'RESTE CHARGE']);
   const cPaye = findCol(h, ['MONTANT PAYE']);
   const cRestePayer = findCol(h, ['RESTE A PAYER']);
   const cOrgAMO = h.find(x => normName(x) === 'AMO') || findCol(h, [/^AMO$/, 'CAISSE']);
@@ -21,7 +21,7 @@ export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
   const cMode = findCol(h, ['MODE DE PAIEMENT', 'MODE PAIEMENT', 'MODE']);
 
   return data.map(r => {
-    const fse = toStr(getVal(r, cFSE));
+    const fse = normFSE(toStr(getVal(r, cFSE)));
     if (!fse) return null;
     let patient = toStr(getVal(r, cPatient));
     if (!patient && cNom) {
@@ -52,13 +52,13 @@ export function parseRecettes(data: Record<string, unknown>[]): RecetteRow[] {
 export function parseSecu(data: Record<string, unknown>[]): SecuRow[] {
   if (!data.length) return [];
   const h = Object.keys(data[0]);
-  const cFSE = findCol(h, ['FSE', /N.*FSE/]);
-  const cPatient = findCol(h, ['PATIENT']);
-  const cAMO = findCol(h, ['MONTANT AMO', 'AMO', 'MONTANT']);
-  const cDate = findCol(h, ['DATE PAIEMENT', 'DATE']);
+  const cFSE = findCol(h, ['NUMERO FSE', 'FSE', /N.*FSE/]);
+  const cPatient = findCol(h, ['NOM DU BENEFICIAIRE', 'PATIENT']);
+  const cAMO = findCol(h, ['MONTANT REGLE AMO', 'MONTANT AMO', 'AMO', 'MONTANT']);
+  const cDate = findCol(h, ['DATE DE PAIEMENT', 'DATE PAIEMENT', 'DATE']);
 
   return data.map(r => {
-    const fse = toStr(getVal(r, cFSE));
+    const fse = normFSE(toStr(getVal(r, cFSE)));
     if (!fse) return null;
     return {
       fse,
@@ -75,21 +75,27 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
   const h = Object.keys(data[0]);
   const fnUp = (filename || '').toUpperCase();
 
-  const cFSE = findCol(h, ['FSE', /N.*FSE/]);
+  const cFSE = findCol(h, ['NUMERO FSE', 'FSE', /N.*FSE/]);
   if (!cFSE) return [];
 
   let cMontant: string | null, cPatient: string | null, cPrenom: string | null, type: string;
 
-  if (fnUp.includes('ALMERYS') || findCol(h, ['MONTANT AMC'])) {
+  // Detect format based on headers and filename
+  if (findCol(h, ['TRAITE LE']) && findCol(h, ['MONTANT RC'])) {
+    // Almerys format: Traité le;Discipline;N°FSE;...;Montant RC;Statut
     type = 'Almerys';
-    cMontant = findCol(h, ['MONTANT AMC']);
-    cPatient = findCol(h, ['PATIENT']) || h.find(x => normName(x).includes('PATIENT')) || h[3] || null;
-    cPrenom = findCol(h, ['PRENOM']);
-  } else if (fnUp.includes('ISANTE') || fnUp.includes('SANTE') || findCol(h, ['MONTANT REGLE'])) {
-    type = 'iSanté';
-    cMontant = findCol(h, ['MONTANT REGLE']);
-    cPatient = null;
+    cMontant = findCol(h, ['MONTANT RC']);
+    // Almerys n'a pas de colonne patient standard, mais parfois Colonne1
+    cPatient = findCol(h, ['COLONNE1']) || null;
     cPrenom = null;
+  } else if (findCol(h, ['NOM DU BENEFICIAIRE']) || findCol(h, ['MONTANT TOTAL'])) {
+    // iSanté format: N°FSE;...;Nom du bénéficiaire;Prénom;...;Montant total;Montant RC
+    type = 'iSanté';
+    // Pour iSanté, Montant total = montant facturé, Montant RC = part mutuelle
+    // Si Montant RC est toujours 0, utiliser Montant total
+    cMontant = findCol(h, ['MONTANT TOTAL', 'MONTANT RC']);
+    cPatient = findCol(h, ['NOM DU BENEFICIAIRE', 'PATIENT']);
+    cPrenom = findCol(h, ['PRENOM DU BENEFICIAIRE', 'PRENOM']);
   } else if (fnUp.includes('VIAMEDIS') || findCol(h, ['NOM'])) {
     type = 'Viamedis';
     cMontant = findCol(h, ['MONTANT AMC', 'AMC']);
@@ -97,14 +103,42 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
     cPrenom = null;
   } else {
     type = 'Autre';
-    cMontant = findCol(h, ['MONTANT AMC', 'MONTANT REGLE', 'MONTANT', 'AMC']);
-    cPatient = findCol(h, ['PATIENT', 'NOM']);
-    cPrenom = findCol(h, ['PRENOM']);
+    cMontant = findCol(h, ['MONTANT AMC', 'MONTANT RC', 'MONTANT REGLE', 'MONTANT', 'AMC']);
+    cPatient = findCol(h, ['PATIENT', 'NOM', 'NOM DU BENEFICIAIRE']);
+    cPrenom = findCol(h, ['PRENOM', 'PRENOM DU BENEFICIAIRE']);
   }
 
+  // For iSanté: detect rejet column and montant total for AMC calculation
+  const cRejet = type === 'iSanté' ? findCol(h, ['MOTIF DE REJET']) : null;
+  const cMontantTotal = type === 'iSanté' ? findCol(h, ['MONTANT TOTAL']) : null;
+  const cMontantRC = type === 'iSanté' ? findCol(h, ['MONTANT RC']) : null;
+
   return data.map(r => {
-    const fse = toStr(getVal(r, cFSE));
+    const fse = normFSE(toStr(getVal(r, cFSE)));
     if (!fse) return null;
+
+    // iSanté: skip rejected lines, calculate AMC = Montant total - Montant RC
+    if (type === 'iSanté') {
+      const rejet = toStr(getVal(r, cRejet));
+      // If there's a rejection reason, skip this line (mutuelle didn't pay)
+      if (rejet && rejet !== '100%') return null;
+      const montantTotal = toNum(getVal(r, cMontantTotal));
+      const montantRC = toNum(getVal(r, cMontantRC));
+      // AMC paid = total - patient share (RC)
+      const montantAMC = montantTotal - montantRC;
+      if (montantAMC <= 0) return null;
+      let patient = toStr(getVal(r, cPatient));
+      if (cPrenom) {
+        const prenom = toStr(getVal(r, cPrenom));
+        if (prenom) patient = patient + ' ' + prenom;
+      }
+      return {
+        fse, type, patient, patientNorm: normName(patient),
+        montantAMC,
+        date: toStr(getVal(r, findCol(h, ['DATE DE VIREMENT', 'DATE DE CREATION', 'DATE DEBUT DES SOINS']) || '')),
+      };
+    }
+
     let patient = toStr(getVal(r, cPatient));
     if (cPrenom) {
       const prenom = toStr(getVal(r, cPrenom));
@@ -113,7 +147,7 @@ export function parseMutuelle(data: Record<string, unknown>[], filename: string)
     return {
       fse, type, patient, patientNorm: normName(patient),
       montantAMC: toNum(getVal(r, cMontant)),
-      date: toStr(getVal(r, 'DATE') || getVal(r, cMontant ? 'DATE PAIEMENT' : '')),
+      date: toStr(getVal(r, findCol(h, ['TRAITE LE', 'DATE SOINS', 'DATE']) || '')),
     };
   }).filter((r): r is MutuelleRow => r !== null);
 }

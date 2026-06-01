@@ -22,7 +22,7 @@ export default function UploadCard({ label, icon, iconBg, file, mapping, loading
     `}>
       <input
         type="file"
-        accept=".xlsx,.xls"
+        accept=".xlsx,.xls,.csv"
         className="absolute inset-0 opacity-0 cursor-pointer"
         onChange={(e) => {
           const f = e.target.files?.[0];

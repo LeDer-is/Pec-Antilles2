@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import type { ResultItem, FilterKey, Recap } from '@/types';
 import { fmt } from '@/lib/utils';
@@ -30,7 +30,7 @@ const SORT_COLS: { key: SortKey; label: string; align: string }[] = [
   { key: 'statut', label: 'Statut', align: 'text-left' },
 ];
 
-export default function ResultsTable({ items, filter, setFilter, search, setSearch, recap, onRowClick }: Props) {
+const ResultsTable = React.memo(function ResultsTable({ items, filter, setFilter, search, setSearch, recap, onRowClick }: Props) {
   const [page, setPage] = useState(0);
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -73,7 +73,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
     if (page > 0 && page >= totalPages) setPage(0);
   }, [page, totalPages]);
 
-  const chips: { key: FilterKey; label: string }[] = [
+  const chips = useMemo<{ key: FilterKey; label: string }[]>(() => [
     { key: 'ALL', label: `Tout (${recap.total - recap.nOrphelin - recap.nAnterieur - recap.nRegleM1 - recap.nImpayePersistant})` },
     { key: 'OK', label: `✅ ${recap.nOK}` },
     { key: 'ÉCART', label: `⚠️ ${recap.nEcart}` },
@@ -83,7 +83,7 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
     ...(recap.nImpayePersistant > 0 ? [{ key: 'IMPAYÉ PERSISTANT' as FilterKey, label: `⏳ ${recap.nImpayePersistant}` }] : []),
     ...(recap.nAnterieurInconnu > 0 ? [{ key: 'ANTÉRIEUR INCONNU' as FilterKey, label: `⚠️ Ant.? (${recap.nAnterieurInconnu})` }] : []),
     { key: 'ANTÉRIEUR', label: `📅 Ant. (${recap.nAnterieur - recap.nAnterieurInconnu})` },
-  ];
+  ], [recap]);
 
   return (
     <div className="space-y-2 sm:space-y-3 w-full">
@@ -213,9 +213,11 @@ export default function ResultsTable({ items, filter, setFilter, search, setSear
       )}
     </div>
   );
-}
+});
 
-function StatusBadge({ statut, validated }: { statut: string; validated?: boolean }) {
+export default ResultsTable;
+
+const StatusBadge = React.memo(function StatusBadge({ statut, validated }: { statut: string; validated?: boolean }) {
   const cls = {
     'OK': 'bg-emerald/15 text-emerald border-emerald/30',
     'ÉCART': 'bg-amber/15 text-amber border-amber/30',
@@ -234,4 +236,4 @@ function StatusBadge({ statut, validated }: { statut: string; validated?: boolea
       {validated && <span className="text-indigo ml-0.5">👤✓</span>}
     </span>
   );
-}
+});

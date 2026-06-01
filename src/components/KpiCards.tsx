@@ -1,12 +1,39 @@
+import React from 'react';
 import type { Recap } from '@/types';
 import { fmt, pct } from '@/lib/utils';
 
 interface Props {
   recap: Recap;
+  loading?: boolean;
 }
 
-export default function KpiCards({ recap }: Props) {
+const KPI_TOOLTIPS: Record<string, string> = {
+  'Total facturé': 'Somme de tous les actes facturés ce mois',
+  'Reçu AMO': 'Remboursements Sécurité Sociale reçus',
+  'Reçu AMC': 'Remboursements Mutuelles reçus',
+  'Total encaissé': 'AMO + AMC reçus',
+  'Reste à percevoir': 'Montant encore attendu (impayés + écarts)',
+  'Taux recouvrement': 'Pourcentage du facturé effectivement encaissé',
+};
+
+const KpiCards = React.memo(function KpiCards({ recap, loading }: Props) {
   const totalAnterieur = recap.totalAnterieurAMO + recap.totalAnterieurAMC;
+
+  if (loading) {
+    return (
+      <div className="space-y-2 sm:space-y-3 w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="bg-raised border border-white/5 rounded-lg p-2 sm:p-3 md:p-4 animate-pulse">
+              <div className="h-2 w-16 bg-white/10 rounded mb-2" />
+              <div className="h-4 w-20 bg-white/10 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2 sm:space-y-3 w-full">
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 sm:gap-3">
@@ -35,11 +62,18 @@ export default function KpiCards({ recap }: Props) {
       )}
     </div>
   );
-}
+});
+
+export default KpiCards;
 
 function Kpi({ label, value, color, delay }: { label: string; value: string; color: string; delay: number }) {
+  const tooltip = KPI_TOOLTIPS[label];
   return (
-    <div className="bg-raised border border-white/5 rounded-lg p-2 sm:p-3 md:p-4 animate-fade-in-up overflow-hidden min-w-0" style={{ animationDelay: `${delay * 60}ms` }}>
+    <div
+      className="bg-raised border border-white/5 rounded-lg p-2 sm:p-3 md:p-4 animate-fade-in-up overflow-hidden min-w-0"
+      style={{ animationDelay: `${delay * 60}ms` }}
+      title={tooltip}
+    >
       <div className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 uppercase tracking-wider mb-0.5 sm:mb-1 truncate">{label}</div>
       <div className={`text-[11px] sm:text-sm md:text-lg font-bold ${color} truncate`}>{value}</div>
     </div>

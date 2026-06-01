@@ -99,23 +99,23 @@ export const COLUMN_SCHEMAS = {
 
 export type FileType = keyof typeof COLUMN_SCHEMAS;
 
-// Patterns heuristiques
+// Patterns heuristiques — adaptés aux fichiers réels (Orthalis, Sécu Martinique, Almerys, iSanté)
 const PATTERNS: Record<string, (string | RegExp)[]> = {
-  fse: ['FSE', /N.*FSE/, /NUM.*FSE/, /N.*FACTUR/],
-  patient: ['PATIENT', 'NOM PATIENT', 'NOM ET PRENOM', /^NOM$/],
-  prenom: ['PRENOM', 'PRÉNOM'],
-  date: ['DATE FSE', 'DATE ACTE', 'DATE SOINS', 'DATE'],
+  fse: ['NUMERO FSE', 'FSE', /N.*FSE/, /NUM.*FSE/, /N.*FACTUR/],
+  patient: ['PATIENT', 'NOM DU BENEFICIAIRE', 'NOM PATIENT', 'NOM ET PRENOM', /^NOM$/],
+  prenom: ['PRENOM DU BENEFICIAIRE', 'PRENOM', 'PRÉNOM'],
+  date: ['DATE FSE', 'DATE DE PAIEMENT', 'DATE ACTE', 'DATE SOINS', 'TRAITE LE', 'DATE'],
   montant: ['MONTANT FACTURE', 'MONTANT TOTAL', 'TOTAL FACTURE', 'MONTANT'],
-  attenduAMO: ['AMO ORTHALIS', 'MONTANT AMO ORTH', 'PART AMO', 'ATTENDU AMO'],
-  attenduAMC: ['AMC ORTHALIS', 'MONTANT AMC ORTH', 'PART AMC', 'ATTENDU AMC'],
-  resteCharge: ['RESTE A CHARGE', 'RESTE CHARGE', 'RAC'],
+  attenduAMO: ['MONTANT AMO ORTHALIS', 'AMO ORTHALIS', 'MONTANT AMO ORTH', 'PART AMO', 'ATTENDU AMO'],
+  attenduAMC: ['MONTANT AMC ORTHALIS', 'AMC ORTHALIS', 'MONTANT AMC ORTH', 'PART AMC', 'ATTENDU AMC'],
+  resteCharge: ['RESTE A CHARGE PATIENT ORTHALIS', 'RESTE A CHARGE', 'RESTE CHARGE', 'RAC'],
   paye: ['MONTANT PAYE', 'PAYE', 'REGLE'],
   restePayer: ['RESTE A PAYER', 'RESTE PAYER', 'IMPAYE'],
   orgAMO: [/^AMO$/, 'CAISSE'],
   orgAMC: [/^AMC$/, 'MUTUELLE'],
   typeLot: ['TYPE LOT', 'LOT'],
-  montantAMO: ['MONTANT AMO', 'AMO REMBOURSE', /^AMO$/],
-  montantAMC: ['MONTANT AMC', 'MONTANT REGLE', 'MONTANT REMBOURSE', /^AMC$/],
+  montantAMO: ['MONTANT REGLE AMO', 'MONTANT AMO', 'AMO REMBOURSE', /^AMO$/],
+  montantAMC: ['MONTANT RC', 'MONTANT AMC', 'MONTANT REGLE', 'MONTANT REMBOURSE', /^AMC$/],
 };
 
 export function heuristicMap(headers: string[], fileType: FileType): Record<string, string> {

@@ -8,11 +8,21 @@ export const toNum = (v: unknown): number => {
 
 export const toStr = (v: unknown): string => (v == null ? '' : String(v).trim());
 
+/** Normalize FSE number: remove leading zeros, trim */
+export const normFSE = (s: string): string => {
+  if (!s) return '';
+  return s.replace(/^0+/, '').trim() || '0';
+};
+
 export const normName = (s: string): string => {
   if (!s) return '';
   return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .toUpperCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
 };
+
+/** Trim headers (remove BOM, leading/trailing spaces) */
+export const trimHeader = (h: string): string =>
+  h.replace(/^\uFEFF/, '').replace(/^\s+|\s+$/g, '');
 
 export const fmt = (n: number | null | undefined): string => {
   if (n == null || isNaN(n)) return '—';
